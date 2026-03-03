@@ -1,0 +1,415 @@
+---
+title: Transaction status
+description: Check the status of payment transactions using request references
+---
+
+## Overview
+
+The transaction status endpoint allows you to query the current state of a payment transaction using its unique request reference. This is essential for tracking pending transactions, reconciling payments, and providing status updates to users.
+
+<Info>
+Use this endpoint to check the final status of transactions that returned a pending response (code 90009) or to verify historical transactions.
+</Info>
+
+## Endpoint
+
+```
+GET /isw/payments/checkStatus?requestReference={requestReference}
+```
+
+Reference: PaymentsController.java:31-35
+
+## When to check status
+
+<Steps>
+  <Step title="Pending transactions">
+    When a payment returns response code 90009 (REQUEST IN PROGRESS)
+  </Step>
+  <Step title="Timeout recovery">
+    When a payment request times out before receiving a response
+  </Step>
+  <Step title="Reconciliation">
+    During end-of-day reconciliation to verify transaction outcomes
+  </Step>
+  <Step title="User inquiry">
+    When users request the status of their previous transactions
+  </Step>
+</Steps>
+
+## Request parameters
+
+<ParamField query="requestReference" type="string" required>
+  The unique request reference used when initiating the payment transaction
+</ParamField>
+
+<Note>
+The `requestReference` is the same value you provided in the original payment request. Store this value securely to enable status checks.
+</Note>
+
+## Implementation
+
+The status check is implemented in `PaymentsService.checkStatus()`:
+
+```java
+public String checkStatus(String requestReference) throws Exception {
+    String endpointUrl = Constants.ROOT_LINK + "sente/status";
+    String request = endpointUrl 
+        + "?terminalId=" + Constants.TERMINAL_ID 
+        + "&requestReference=" + requestReference;
+
+    SystemResponse<KeyExchangeResponse> exchangeKeys = keyExchangeService.doKeyExchange();
+
+    if(exchangeKeys.getResponseCode().equals(PhoenixResponseCodes.APPROVED.CODE)) {
+        Map<String,String> headers = AuthUtils.generateInterswitchAuth(
+            Constants.GET_REQUEST, 
+            request, 
+            "",
+            exchangeKeys.getResponse().getAuthToken(),
+            exchangeKeys.getResponse().getTerminalKey()
+        );
+        return HttpUtil.getHTTPRequest(request, headers);
+    }
+    else {
+        return "Cannot Continue with balance Check,Key Exchange failed";
+    }
+}
+```
+
+Reference: PaymentsService.java:90-104
+
+## Response types
+
+### Successful transaction
+
+```json
+{
+  "responseCode": "90000",
+  "responseMessage": "TRANSACTION APPROVED",
+  "requestReference": "038938738738",
+  "transactionReference": "ISW20240315123456",
+  "amount": 100.00,
+  "customerId": "12345",
+  "customerName": "Alice Smith",
+  "transactionDate": "2024-03-15T14:30:00",
+  "paymentCode": 56789
+}
+```
+
+<Tip>
+A response code of `90000` indicates the transaction was successfully processed. Save the `transactionReference` for your records.
+</Tip>
+
+### Pending transaction
+
+```json
+{
+  "responseCode": "90009",
+  "responseMessage": "REQUEST IN PROGRESS",
+  "requestReference": "038938738738"
+}
+```
+
+<Info>
+If the transaction is still pending, wait 30-60 seconds before checking again. Implement exponential backoff for repeated checks.
+</Info>
+
+### Failed transaction
+
+```json
+{
+  "responseCode": "90051",
+  "responseMessage": "INSUFFICIENT FUNDS",
+  "requestReference": "038938738738",
+  "amount": 100.00,
+  "customerId": "12345"
+}
+```
+
+### Transaction not found
+
+```json
+{
+  "responseCode": "90025",
+  "responseMessage": "NON EXISTENT TRANSACTION",
+  "requestReference": "038938738738"
+}
+```
+
+<Warning>
+If you receive code 90025 (NON EXISTENT TRANSACTION), verify that:
+- The request reference is correct
+- The original payment was actually submitted
+- You're checking the status on the same terminal that initiated the payment
+</Warning>
+
+## Status codes reference
+
+Common response codes for transaction status:
+
+| Code | Message | Description |
+|------|---------|-------------|
+| 90000 | TRANSACTION APPROVED | Payment completed successfully |
+| 90009 | REQUEST IN PROGRESS | Transaction is still being processed |
+| 90025 | NON EXISTENT TRANSACTION | No transaction found with this reference |
+| 90051 | INSUFFICIENT FUNDS | Transaction failed due to insufficient balance |
+| 90055 | WRONG PIN OR OTP | Transaction failed due to incorrect credentials |
+| 90020 | TRANSACTION DECLINED BY BILLER | Biller rejected the transaction |
+| 90059 | REJECTED AS SUSPECT DUPLICATE/FRAUD | Transaction flagged as fraudulent |
+
+Reference: PhoenixResponseCodes.java:7-22
+
+## Code examples
+
+### Basic status check
+
+```java
+@Autowired
+private PaymentsService paymentsService;
+
+public String checkTransactionStatus(String requestReference) {
+    try {
+        String response = paymentsService.checkStatus(requestReference);
+        return response;
+    } catch (Exception e) {
+        System.err.println("Status check failed: " + e.getMessage());
+        throw new StatusCheckException(e);
+    }
+}
+```
+
+### Polling for completion
+
+```java
+public JSONObject waitForTransactionCompletion(
+    String requestReference, 
+    int maxAttempts,
+    int delaySeconds
+) throws Exception {
+    
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        String response = paymentsService.checkStatus(requestReference);
+        JSONObject json = new JSONObject(response);
+        String responseCode = json.getString("responseCode");
+        
+        // Transaction completed (success or failure)
+        if (!"90009".equals(responseCode)) {
+            return json;
+        }
+        
+        // Still pending - wait before retry
+        Thread.sleep(delaySeconds * 1000);
+    }
+    
+    throw new TimeoutException("Transaction still pending after " + maxAttempts + " attempts");
+}
+```
+
+### Exponential backoff
+
+```java
+public JSONObject checkStatusWithBackoff(String requestReference) throws Exception {
+    int[] delays = {5, 10, 30, 60, 120}; // seconds
+    
+    for (int delay : delays) {
+        String response = paymentsService.checkStatus(requestReference);
+        JSONObject json = new JSONObject(response);
+        String responseCode = json.getString("responseCode");
+        
+        if (!"90009".equals(responseCode)) {
+            return json;
+        }
+        
+        System.out.println("Transaction pending, waiting " + delay + " seconds...");
+        Thread.sleep(delay * 1000);
+    }
+    
+    throw new TimeoutException("Transaction still pending after maximum retries");
+}
+```
+
+### Using the REST endpoint
+
+```bash
+curl -X GET "http://localhost:8081/isw/payments/checkStatus?requestReference=038938738738"
+```
+
+Reference: README.md:14
+
+## Handling different statuses
+
+### Success handling
+
+```java
+JSONObject response = new JSONObject(responseString);
+String responseCode = response.getString("responseCode");
+
+if ("90000".equals(responseCode)) {
+    String transactionRef = response.getString("transactionReference");
+    String transactionDate = response.getString("transactionDate");
+    
+    // Update database
+    updateTransactionRecord(requestReference, transactionRef, "COMPLETED");
+    
+    // Notify customer
+    sendSuccessNotification(customerId, amount);
+    
+    return true;
+}
+```
+
+### Pending handling
+
+```java
+if ("90009".equals(responseCode)) {
+    // Schedule another status check
+    scheduleStatusCheck(requestReference, 60); // Check again in 60 seconds
+    return false;
+}
+```
+
+### Failure handling
+
+```java
+List<String> failureCodes = Arrays.asList(
+    "90051", // Insufficient funds
+    "90055", // Wrong PIN
+    "90020", // Declined by biller
+    "90059"  // Suspected fraud
+);
+
+if (failureCodes.contains(responseCode)) {
+    String errorMessage = response.getString("responseMessage");
+    
+    // Update database
+    updateTransactionRecord(requestReference, null, "FAILED");
+    
+    // Notify customer of failure
+    sendFailureNotification(customerId, errorMessage);
+    
+    return false;
+}
+```
+
+## Best practices
+
+<Warning>
+**Don't poll too frequently**
+
+Avoid checking status more than once every 5-10 seconds. Excessive polling can lead to rate limiting and poor system performance.
+</Warning>
+
+### Store request references
+
+Always store request references in your database along with transaction details:
+
+```java
+public void saveTransaction(PaymentRequest request) {
+    Transaction txn = new Transaction();
+    txn.setRequestReference(request.getRequestReference());
+    txn.setCustomerId(request.getCustomerId());
+    txn.setAmount(request.getAmount());
+    txn.setStatus("PENDING");
+    txn.setCreatedAt(new Date());
+    
+    transactionRepository.save(txn);
+}
+```
+
+### Implement timeout limits
+
+Don't poll indefinitely. Set a maximum number of attempts:
+
+```java
+int maxAttempts = 10;
+int currentAttempt = 0;
+int delaySeconds = 30;
+
+while (currentAttempt < maxAttempts) {
+    String status = checkStatus(requestReference);
+    if (!isPending(status)) {
+        return status;
+    }
+    currentAttempt++;
+    Thread.sleep(delaySeconds * 1000);
+}
+
+// Mark as timeout after max attempts
+markAsTimeout(requestReference);
+```
+
+### Handle network errors
+
+Implement retry logic for network failures:
+
+```java
+public String checkStatusWithRetry(String requestReference) {
+    int maxRetries = 3;
+    
+    for (int retry = 0; retry < maxRetries; retry++) {
+        try {
+            return paymentsService.checkStatus(requestReference);
+        } catch (IOException e) {
+            if (retry == maxRetries - 1) {
+                throw e;
+            }
+            Thread.sleep(2000 * (retry + 1)); // Exponential backoff
+        }
+    }
+    
+    throw new RuntimeException("Failed after " + maxRetries + " retries");
+}
+```
+
+### Reconciliation process
+
+Run daily reconciliation to check pending transactions:
+
+```java
+public void reconcilePendingTransactions() {
+    List<Transaction> pending = transactionRepository.findByStatus("PENDING");
+    
+    for (Transaction txn : pending) {
+        try {
+            String response = paymentsService.checkStatus(txn.getRequestReference());
+            JSONObject json = new JSONObject(response);
+            String responseCode = json.getString("responseCode");
+            
+            if ("90000".equals(responseCode)) {
+                txn.setStatus("COMPLETED");
+                txn.setTransactionReference(json.getString("transactionReference"));
+            } else if (!"90009".equals(responseCode)) {
+                txn.setStatus("FAILED");
+                txn.setErrorMessage(json.getString("responseMessage"));
+            }
+            
+            transactionRepository.save(txn);
+            
+        } catch (Exception e) {
+            System.err.println("Failed to reconcile: " + txn.getRequestReference());
+        }
+    }
+}
+```
+
+## Response time expectations
+
+Typical response times for status checks:
+
+- **Immediate**: Completed or failed transactions return instantly
+- **Pending**: Transactions may take 30 seconds to 5 minutes
+- **Offline billers**: Some billers may take up to 24 hours
+
+<Tip>
+For real-time transactions, check status every 30 seconds for the first 5 minutes, then reduce frequency to every 5 minutes.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Wallet balance" icon="wallet" href="/payments/wallet-balance">
+    Check available balance before processing payments
+  </Card>
+  <Card title="Payment operations" icon="book" href="/payments/overview">
+    Return to payment operations overview
+  </Card>
+</CardGroup>

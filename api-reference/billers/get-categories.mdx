@@ -1,0 +1,91 @@
+---
+title: Get biller categories
+description: Retrieve all available biller categories for payment processing
+---
+
+Retrieves all biller categories that are available for the authenticated client. Categories organize billers into logical groups such as utilities, telecommunications, government services, etc.
+
+## Endpoint
+
+```
+GET /isw/payments/billerCategories
+```
+
+## Authentication
+
+This endpoint requires authentication using Interswitch's signature-based authentication. The middleware automatically handles key exchange and generates the required authentication headers including:
+
+- Authorization token
+- Terminal key from key exchange
+- Request signature
+
+## Request
+
+This endpoint does not require any query parameters or request body. The terminal ID is automatically included from the application configuration.
+
+## Response
+
+Returns a JSON response containing an array of biller categories.
+
+<ResponseField name="categories" type="array">
+  Array of biller category objects
+  
+  <ResponseField name="categoryId" type="string">
+    Unique identifier for the category
+  </ResponseField>
+  
+  <ResponseField name="categoryName" type="string">
+    Display name of the category
+  </ResponseField>
+  
+  <ResponseField name="categoryDescription" type="string">
+    Description of the category
+  </ResponseField>
+</ResponseField>
+
+## Code example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://localhost:8081/isw/payments/billerCategories \
+  --header 'Content-Type: application/json'
+```
+
+```java Java
+String response = restTemplate.getForObject(
+    "http://localhost:8081/isw/payments/billerCategories",
+    String.class
+);
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8081/isw/payments/billerCategories', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+const categories = await response.json();
+```
+
+</CodeGroup>
+
+## Error responses
+
+If the key exchange fails, the endpoint returns an error message:
+
+```json
+{
+  "error": "Cannot Fetch Categories,Key Exchange failed"
+}
+```
+
+## Next steps
+
+After retrieving categories:
+
+1. Use a category ID to fetch billers in that category using [Get billers by category](/api-reference/billers/get-category-billers)
+2. Display categories to users for biller selection

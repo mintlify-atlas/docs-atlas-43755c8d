@@ -1,0 +1,87 @@
+---
+title: Introduction
+description: Phoenix Java Middleware is a Spring Boot REST API that simplifies integration with the Interswitch Phoenix payment API
+---
+
+# Welcome to Phoenix Java Middleware
+
+Phoenix Java Middleware is a Java Spring Boot application that serves as a standalone microservice for integrating with the Interswitch Uganda Phoenix API. It provides a simplified REST interface for payment processing, client authentication, and biller management operations.
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Get up and running in minutes with the pre-built JAR
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Configure your credentials and settings
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication/overview">
+    Learn about key generation and client registration
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/auth/generate-keys">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Client registration" icon="user-plus">
+    Secure client registration with elliptic curve cryptography
+  </Card>
+  <Card title="Payment processing" icon="credit-card">
+    Validate accounts and process payments seamlessly
+  </Card>
+  <Card title="Biller management" icon="building">
+    Browse categories, billers, and payment items
+  </Card>
+  <Card title="Transaction tracking" icon="magnifying-glass">
+    Check payment status and wallet balance
+  </Card>
+</CardGroup>
+
+## Architecture
+
+The middleware is built on Spring Boot 3.1.5 and provides a clean separation of concerns:
+
+- **Controllers** - REST endpoints that expose the Phoenix API functionality
+- **Services** - Business logic for authentication, payments, and billers
+- **DTOs** - Data transfer objects for request/response handling
+- **Utilities** - Cryptographic operations, HTTP clients, and helper methods
+
+## Security
+
+Phoenix Java Middleware implements enterprise-grade security features:
+
+- **Elliptic curve cryptography** for key exchange using Bouncy Castle
+- **Signature-based authentication** with Interswitch
+- **Daily key rotation** to maintain secure sessions
+- **OTP encryption** for sensitive payment operations
+
+## Technology stack
+
+- **Spring Boot 3.1.5** - Application framework
+- **Java 17+** (OpenJDK recommended)
+- **Bouncy Castle 1.71** - Cryptographic operations
+- **Apache HttpClient 4.5.13** - HTTP communication
+- **Jackson 2.13.0** - JSON processing
+
+## Use cases
+
+Phoenix Java Middleware is ideal for:
+
+- Fintech applications requiring payment processing
+- Mobile money integrations in Uganda
+- Bill payment systems
+- Wallet-based applications
+- POS terminal integrations
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Run the middleware" icon="play" href="/quickstart">
+    Start the application and test the endpoints
+  </Card>
+  <Card title="Configure credentials" icon="lock" href="/configuration">
+    Set up your Phoenix API credentials
+  </Card>
+</CardGroup>

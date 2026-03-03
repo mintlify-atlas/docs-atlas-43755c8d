@@ -1,0 +1,97 @@
+---
+title: Register client
+description: Register a new client terminal with the Phoenix middleware
+---
+
+Registers a new client terminal with the system. This endpoint requires client details and the public key generated from the `/generateKeys` endpoint.
+
+## Endpoint
+
+```
+POST /isw/auth/registerClient
+```
+
+## Authentication
+
+No authentication required for initial registration.
+
+## Request body
+
+<ParamField body="name" type="string" required>
+  The name of the company or client
+</ParamField>
+
+<ParamField body="phoneNumber" type="string" required>
+  Client's phone number
+</ParamField>
+
+<ParamField body="nin" type="string" required>
+  National Identification Number
+</ParamField>
+
+<ParamField body="gender" type="string" required>
+  Gender of the client contact
+</ParamField>
+
+<ParamField body="emailAddress" type="string" required>
+  Client's email address
+</ParamField>
+
+<ParamField body="ownerPhoneNumber" type="string" required>
+  Phone number of the business owner
+</ParamField>
+
+<ParamField body="publicKey" type="string" required>
+  RSA public key generated from the `/generateKeys` endpoint
+</ParamField>
+
+<ParamField body="clientSessionPublicKey" type="string">
+  Client's session public key for secure communication
+</ParamField>
+
+<ParamField body="requestReference" type="string">
+  Unique reference for this request
+</ParamField>
+
+<ParamField body="terminalId" type="string">
+  Terminal identifier (inherited from ClientTerminalRequest)
+</ParamField>
+
+<ParamField body="appVersion" type="string">
+  Version of the client application
+</ParamField>
+
+<ParamField body="serialId" type="string">
+  Serial ID of the terminal device
+</ParamField>
+
+<ParamField body="gprsCoordinate" type="string">
+  GPS coordinates of the terminal
+</ParamField>
+
+## Response
+
+Returns a string response indicating the registration status or a registration token.
+
+## Example request
+
+```bash cURL
+curl --request POST \
+  --url http://localhost:8081/isw/auth/registerClient \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "Company Name",
+  "phoneNumber": "123-456-7890",
+  "nin": "123456789",
+  "gender": "Male",
+  "emailAddress": "john.doe@example.com",
+  "ownerPhoneNumber": "987-654-3210",
+  "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
+}'
+```
+
+## Example response
+
+```json
+"Registration successful"
+```

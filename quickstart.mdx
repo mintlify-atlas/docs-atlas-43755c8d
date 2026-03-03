@@ -1,80 +1,172 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get the Phoenix Java Middleware up and running in minutes
 ---
 
-## Get started in three steps
+# Quickstart
 
-Get your documentation site running locally and make your first customization.
+This guide will help you get the Phoenix Java Middleware running quickly using the pre-built JAR file or by building from source.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Before you begin, ensure you have:
+
+- **Java 17 or higher** (OpenJDK recommended)
+- Phoenix API credentials from Interswitch Uganda
+- A text editor for configuration
+
+<Note>
+The middleware runs on port 8081 by default. Make sure this port is available.
+</Note>
+
+## Option 1: Run the pre-built JAR
+
+The fastest way to get started is using the pre-built JAR from the `/dist` folder.
+
+<Steps>
+  <Step title="Download or clone the repository">
+    Clone the repository from GitHub:
+    ```bash
+    git clone https://github.com/jonahokot/phoenix-java-middleware.git
+    cd phoenix-java-middleware
+    ```
+  </Step>
+
+  <Step title="Configure your credentials">
+    Update the `dist/application.properties` file with your Phoenix API credentials:
+    ```properties
+    app.client_id=YOUR_CLIENT_ID
+    app.client_secret=YOUR_CLIENT_SECRET
+    app.terminal_id=YOUR_TERMINAL_ID
+    ```
+    See the [Configuration](/configuration) guide for all available settings.
+  </Step>
+
+  <Step title="Run the JAR">
+    Execute the JAR file using Java:
+    ```bash
+    java -jar dist/phoenix-api-middleware-1.0.0.jar
+    ```
+    The application will start on `http://localhost:8081`.
+  </Step>
+</Steps>
+
+## Option 2: Build from source
+
+If you want to build the middleware yourself or make custom modifications:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/jonahokot/phoenix-java-middleware.git
+    cd phoenix-java-middleware
+    ```
+  </Step>
+
+  <Step title="Configure credentials">
+    Edit `src/main/resources/application.properties` with your credentials:
+    ```properties
+    app.client_id=YOUR_CLIENT_ID
+    app.client_secret=YOUR_CLIENT_SECRET
+    app.terminal_id=YOUR_TERMINAL_ID
+    ```
+  </Step>
+
+  <Step title="Build with Maven">
+    Use the Maven wrapper to build the project:
+    ```bash
+    ./mvnw clean package
+    ```
+    The JAR will be created in the `target/` directory.
+  </Step>
+
+  <Step title="Run the application">
+    ```bash
+    java -jar target/phoenix-api-middleware-1.0.0.jar
+    ```
+  </Step>
+</Steps>
+
+## Verify the installation
+
+Once the application is running, verify it's working correctly:
+
+<Steps>
+  <Step title="Check the application status">
+    The console should display:
+    ```
+    Started PhoenixSimulatorApplication in X.XXX seconds
+    ```
+  </Step>
+
+  <Step title="Test the key generation endpoint">
+    Generate RSA keys for client registration:
+    ```bash
+    curl http://localhost:8081/isw/auth/generateKeys
+    ```
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    You should receive a response with public and private keys:
+    ```json
+    {
+      "publicKey": "MIIBIjANBgkqhki...",
+      "privateKey": "MIIEvgIBADANBgk..."
+    }
+    ```
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Test key exchange">
+    Perform a key exchange to establish a session:
+    ```bash
+    curl http://localhost:8081/isw/auth/keyExchange
+    ```
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Info>
+The middleware automatically handles key exchange before payment operations, so you don't need to call it manually for each transaction.
+</Info>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Available endpoints
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+The middleware exposes the following REST endpoints:
 
-### Step 3: Go live
+### Authentication
+- `GET /isw/auth/generateKeys` - Generate RSA key pairs
+- `POST /isw/auth/registerClient` - Register a new client
+- `GET /isw/auth/keyExchange` - Perform key exchange
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+### Payments
+- `POST /isw/payments/validation` - Validate customer account
+- `POST /isw/payments/pay` - Process payment
+- `GET /isw/payments/checkStatus` - Check transaction status
+- `GET /isw/payments/balance` - Get wallet balance
+
+### Billers
+- `GET /isw/payments/billerCategories` - Get biller categories
+- `GET /isw/payments/categoryBillers` - Get billers by category
+- `GET /isw/payments/billerItems` - Get payment items
+
+<Tip>
+Import the included Postman collection (`Phoenix API Sample.postman_collection.json`) for easy testing of all endpoints.
+</Tip>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Configure all application settings
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication/overview">
+    Learn about the authentication flow
+  </Card>
+  <Card title="Process payments" icon="credit-card" href="/payments/overview">
+    Start processing payments
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/auth/generate-keys">
+    Explore the complete API
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Warning>
+Remember to update your client secret after completing the registration process, as a new secret is issued upon successful registration.
+</Warning>

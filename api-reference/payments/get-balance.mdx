@@ -1,0 +1,55 @@
+---
+title: Get wallet balance
+description: Retrieve the current balance of your payment wallet
+---
+
+## Endpoint
+
+```
+GET /isw/payments/balance
+```
+
+Retrieves the current balance available in your payment wallet. This endpoint provides real-time balance information for your account.
+
+## Authentication
+
+This endpoint requires authentication. Include your API credentials in the request headers.
+
+## Query parameters
+
+This endpoint does not require any query parameters.
+
+## Response
+
+Returns a JSON string containing the wallet balance information.
+
+<ResponseField name="responseCode" type="string">
+  Code indicating the query result
+</ResponseField>
+
+<ResponseField name="responseMessage" type="string">
+  Message describing the balance query outcome
+</ResponseField>
+
+<ResponseField name="availableBalance" type="number">
+  Current available balance in the wallet
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  Currency of the balance amount
+</ResponseField>
+
+<ResponseField name="ledgerBalance" type="number">
+  Total ledger balance including pending transactions
+</ResponseField>
+
+<ResponseField name="accountNumber" type="string">
+  Wallet account number
+</ResponseField>
+
+## Example
+
+```bash
+curl -X GET https://api.example.com/isw/payments/balance \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```

@@ -1,0 +1,65 @@
+---
+title: Check transaction status
+description: Retrieve the current status of a payment transaction
+---
+
+## Endpoint
+
+```
+GET /isw/payments/checkStatus
+```
+
+Retrieve the current status of a payment transaction using its request reference. Use this endpoint to check whether a payment has been successfully processed, is pending, or has failed.
+
+## Authentication
+
+This endpoint requires authentication. Include your API credentials in the request headers.
+
+## Query parameters
+
+<ParamField query="requestReference" type="string" required>
+  The unique reference of the transaction to check
+</ParamField>
+
+## Response
+
+Returns a JSON string containing the transaction status information.
+
+<ResponseField name="responseCode" type="string">
+  Code indicating the query result
+</ResponseField>
+
+<ResponseField name="responseMessage" type="string">
+  Message describing the status query outcome
+</ResponseField>
+
+<ResponseField name="transactionStatus" type="string">
+  Current status of the transaction (e.g., SUCCESS, PENDING, FAILED)
+</ResponseField>
+
+<ResponseField name="transactionReference" type="string">
+  Reference assigned to the transaction
+</ResponseField>
+
+<ResponseField name="amount" type="number">
+  Transaction amount
+</ResponseField>
+
+<ResponseField name="customerId" type="string">
+  Customer identifier associated with the transaction
+</ResponseField>
+
+<ResponseField name="paymentCode" type="number">
+  Payment code used in the transaction
+</ResponseField>
+
+<ResponseField name="transactionDate" type="string">
+  Date and time when the transaction was processed
+</ResponseField>
+
+## Example
+
+```bash
+curl -X GET "https://api.example.com/isw/payments/checkStatus?requestReference=038938738738" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```

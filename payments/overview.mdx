@@ -1,0 +1,180 @@
+---
+title: Payment operations overview
+description: Learn how to process payments, validate customers, and manage transactions using the Phoenix Java Middleware
+---
+
+## Introduction
+
+The Phoenix Java Middleware provides a comprehensive set of payment operations that enable you to process transactions, validate customer accounts, check payment status, and manage wallet balances. All payment operations are exposed through the `PaymentsController` and implemented in the `PaymentsService`.
+
+## Available operations
+
+The middleware exposes the following payment endpoints:
+
+<CardGroup cols={2}>
+  <Card title="Customer validation" icon="check-circle" href="/payments/validation">
+    Validate customer account details before processing payments
+  </Card>
+  <Card title="Process payments" icon="credit-card" href="/payments/making-payments">
+    Execute payment transactions with support for multiple payment methods
+  </Card>
+  <Card title="Transaction status" icon="list-check" href="/payments/transaction-status">
+    Check the status of payment transactions using request references
+  </Card>
+  <Card title="Wallet balance" icon="wallet" href="/payments/wallet-balance">
+    Retrieve current wallet balance for your terminal
+  </Card>
+</CardGroup>
+
+## Architecture
+
+### Controller layer
+
+The `PaymentsController` handles HTTP requests and routes them to the appropriate service methods:
+
+```java
+@RestController
+@RequestMapping("isw/payments")
+public class PaymentsController {
+    private PaymentsService paymentsService;
+
+    public PaymentsController(PaymentsService paymentsService) {
+        this.paymentsService = paymentsService;
+    }
+}
+```
+
+Reference: PaymentsController.java:9-17
+
+### Service layer
+
+The `PaymentsService` contains the business logic for all payment operations. Each method:
+
+1. Performs key exchange to obtain authentication tokens
+2. Generates Interswitch authentication headers
+3. Encrypts sensitive data (OTP, auth tokens)
+4. Makes HTTP requests to the Phoenix API
+
+```java
+@Service
+public class PaymentsService {
+    private KeyExchangeService keyExchangeService;
+
+    public PaymentsService(KeyExchangeService keyExchangeService) {
+        this.keyExchangeService = keyExchangeService;
+    }
+}
+```
+
+Reference: PaymentsService.java:12-20
+
+## Security features
+
+### Key exchange
+
+Before each payment operation, the service performs a key exchange to obtain:
+
+- **Auth token**: Used for authentication
+- **Terminal key**: Used for encrypting sensitive data
+- **Session keys**: Temporary keys for secure communication
+
+<Note>
+The key exchange is automatically performed before each transaction. You don't need to call it manually when using the middleware endpoints.
+</Note>
+
+### Data encryption
+
+Sensitive data is encrypted using AES-256-CBC with PKCS7 padding:
+
+```java
+if(request.getOtp() != null)
+    request.setOtp(CryptoUtils.encrypt(request.getOtp(), 
+        exchangeKeys.getResponse().getTerminalKey()));
+```
+
+Reference: PaymentsService.java:60-61
+
+### Authentication headers
+
+All requests include Interswitch authentication headers:
+
+- **Authorization**: Base64-encoded client ID
+- **Timestamp**: Current timestamp in Africa/Kampala timezone
+- **Nonce**: Unique identifier for request
+- **Signature**: SHA-256 RSA signature of request parameters
+- **Auth-Token**: Encrypted authentication token
+
+## Payment request structure
+
+Most payment operations use the `PaymentRequest` DTO which extends `PaymentsTerminalRequest`:
+
+```java
+public class PaymentRequest extends PaymentsTerminalRequest {
+    private double amount;
+    private String customerId;
+    private String phoneNumber;
+    private long paymentCode;
+    private String customerName;
+    private String sourceOfFunds;
+    private String narration;
+    private String pin;
+    private String otp;
+    private String currencyCode;
+    private CardData cardData;
+    private String requestReference;
+    // ... additional fields
+}
+```
+
+Reference: PaymentRequest.java:4-23
+
+## Response codes
+
+The Phoenix API uses standardized response codes defined in `PhoenixResponseCodes`:
+
+| Code | Message | Description |
+|------|---------|-------------|
+| 90000 | TRANSACTION APPROVED | Payment successful |
+| 90051 | INSUFFICIENT FUNDS | Customer has insufficient balance |
+| 90052 | UN RECOGNIZABLE CUSTOMER NUMBER | Invalid customer ID |
+| 90055 | WRONG PIN OR OTP | Incorrect PIN or OTP entered |
+| 90026 | DUPLICATE REQUEST REFERENCE | Request reference already used |
+| 90091 | REMOTE SYSTEM TEMPORARILY UNAVAILABLE | System temporarily down |
+
+<Tip>
+Always check the response code to determine transaction success. Use `PhoenixResponseCodes.APPROVED.CODE` (90000) to verify successful transactions.
+</Tip>
+
+## Base URL configuration
+
+Configure the Phoenix API base URL in your `application.properties`:
+
+```properties
+phoenix.api.root.link=https://qa.interswitchug.com/phoenix/api/v1/
+phoenix.api.billers.root=https://qa.interswitchug.com/phoenix/api/v1/billers/
+```
+
+## Next steps
+
+<Steps>
+  <Step title="Validate customers">
+    Learn how to validate customer accounts before processing payments
+    
+    [Customer validation →](/payments/validation)
+  </Step>
+  <Step title="Process payments">
+    Execute payment transactions with the middleware
+    
+    [Making payments →](/payments/making-payments)
+  </Step>
+  <Step title="Check status">
+    Monitor transaction status and handle responses
+    
+    [Transaction status →](/payments/transaction-status)
+  </Step>
+  <Step title="Manage balances">
+    Retrieve and monitor wallet balances
+    
+    [Wallet balance →](/payments/wallet-balance)
+  </Step>
+</Steps>

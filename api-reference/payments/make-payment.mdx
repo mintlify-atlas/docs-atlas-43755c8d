@@ -1,0 +1,201 @@
+---
+title: Make payment
+description: Process a payment transaction after customer validation
+---
+
+## Endpoint
+
+```
+POST /isw/payments/pay
+```
+
+Processes a payment transaction using validated customer information. This endpoint should be called after successfully validating customer details using the validation endpoint.
+
+## Authentication
+
+This endpoint requires authentication. Include your API credentials in the request headers.
+
+## Request body
+
+<ParamField body="requestReference" type="string" required>
+  Unique reference for this payment request
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Payment amount
+</ParamField>
+
+<ParamField body="customerId" type="string" required>
+  Unique identifier for the customer
+</ParamField>
+
+<ParamField body="phoneNumber" type="string" required>
+  Customer's phone number
+</ParamField>
+
+<ParamField body="paymentCode" type="number" required>
+  Code identifying the payment type or biller
+</ParamField>
+
+<ParamField body="customerName" type="string">
+  Full name of the customer
+</ParamField>
+
+<ParamField body="currencyCode" type="string">
+  ISO currency code (e.g., USD, UGX)
+</ParamField>
+
+<ParamField body="sourceOfFunds" type="string">
+  Source from which funds will be debited
+</ParamField>
+
+<ParamField body="narration" type="string">
+  Description or notes for the transaction
+</ParamField>
+
+<ParamField body="depositorName" type="string">
+  Name of the person making the deposit
+</ParamField>
+
+<ParamField body="location" type="string">
+  Geographic location of the transaction
+</ParamField>
+
+<ParamField body="alternateCustomerId" type="string">
+  Alternative customer identifier
+</ParamField>
+
+<ParamField body="transactionCode" type="string">
+  Code for the specific transaction
+</ParamField>
+
+<ParamField body="customerToken" type="string">
+  Token for customer authentication or identification
+</ParamField>
+
+<ParamField body="additionalData" type="string">
+  Any additional data required for the transaction
+</ParamField>
+
+<ParamField body="collectionsAccountNumber" type="string">
+  Account number where funds will be collected
+</ParamField>
+
+<ParamField body="pin" type="string">
+  Customer PIN for authorization
+</ParamField>
+
+<ParamField body="otp" type="string">
+  One-time password for transaction verification
+</ParamField>
+
+<ParamField body="terminalId" type="string">
+  Identifier for the terminal processing the transaction
+</ParamField>
+
+<ParamField body="IIN" type="string">
+  Issuer Identification Number
+</ParamField>
+
+<ParamField body="gprsCoordinate" type="string">
+  GPS coordinates of the transaction location
+</ParamField>
+
+<ParamField body="cardData" type="object">
+  Card information for card-based transactions
+  
+  <ParamField body="cardData.pan" type="string">
+    Primary Account Number (card number)
+  </ParamField>
+  
+  <ParamField body="cardData.expiryDate" type="string">
+    Card expiration date
+  </ParamField>
+  
+  <ParamField body="cardData.track2" type="string">
+    Track 2 data from card magnetic stripe
+  </ParamField>
+  
+  <ParamField body="cardData.pinBlock" type="string">
+    Encrypted PIN block
+  </ParamField>
+  
+  <ParamField body="cardData.cvmResults" type="string">
+    Cardholder Verification Method results
+  </ParamField>
+  
+  <ParamField body="cardData.issuer" type="string">
+    Card issuing institution
+  </ParamField>
+  
+  <ParamField body="cardData.accountType" type="string">
+    Type of account (savings, current, etc.)
+  </ParamField>
+  
+  <ParamField body="cardData.posEntryMode" type="string">
+    Point of sale entry mode
+  </ParamField>
+  
+  <ParamField body="cardData.posDataCode" type="string">
+    Point of sale data code
+  </ParamField>
+  
+  <ParamField body="cardData.posConditionCode" type="string">
+    Point of sale condition code
+  </ParamField>
+  
+  <ParamField body="cardData.cryptogram" type="string">
+    EMV cryptogram for chip card transactions
+  </ParamField>
+  
+  <ParamField body="cardData.applicationInterchangeProfile" type="string">
+    Application Interchange Profile from EMV chip
+  </ParamField>
+  
+  <ParamField body="cardData.terminalVerificationResult" type="string">
+    Terminal Verification Result from EMV transaction
+  </ParamField>
+</ParamField>
+
+## Response
+
+Returns a JSON string containing the payment transaction result.
+
+<ResponseField name="responseCode" type="string">
+  Code indicating the transaction result
+</ResponseField>
+
+<ResponseField name="responseMessage" type="string">
+  Message describing the transaction outcome
+</ResponseField>
+
+<ResponseField name="transactionReference" type="string">
+  Unique reference assigned to the completed transaction
+</ResponseField>
+
+<ResponseField name="amount" type="number">
+  Amount that was processed
+</ResponseField>
+
+## Example
+
+```bash
+curl -X POST https://api.example.com/isw/payments/pay \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "requestReference": "038938738738",
+    "amount": 100.00,
+    "customerId": "12345",
+    "phoneNumber": "987-654-3210",
+    "paymentCode": 56789,
+    "customerName": "Alice Smith",
+    "sourceOfFunds": "Bank Account",
+    "narration": "Payment for order",
+    "depositorName": "Bob Johnson",
+    "location": "City XYZ",
+    "currencyCode": "USD",
+    "pin": "1234",
+    "otp": "567890"
+  }'
+```

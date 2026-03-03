@@ -1,0 +1,446 @@
+---
+title: Making payments
+description: Process payment transactions using the Phoenix Java Middleware with support for multiple payment methods
+---
+
+## Overview
+
+The payment endpoint allows you to process transactions after successfully validating customer details. It supports multiple payment methods including wallet payments, card payments, and PIN/OTP-based authentication.
+
+<Warning>
+**Validate customers first**
+
+Always perform customer validation before processing payments to ensure the customer account is valid and active.
+</Warning>
+
+## Endpoint
+
+```
+POST /isw/payments/pay
+```
+
+Reference: PaymentsController.java:25-29
+
+## Payment flow
+
+<Steps>
+  <Step title="Validate customer">
+    First validate the customer account using the validation endpoint
+  </Step>
+  <Step title="Prepare payment request">
+    Build the payment request with all required fields including amount, customer ID, and payment code
+  </Step>
+  <Step title="Key exchange">
+    The service automatically performs key exchange to obtain authentication tokens
+  </Step>
+  <Step title="Encrypt sensitive data">
+    PIN and OTP values are encrypted using the terminal session key
+  </Step>
+  <Step title="Generate signature">
+    Authentication headers are generated with a signature of critical payment parameters
+  </Step>
+  <Step title="Submit payment">
+    The payment request is submitted to the Phoenix API
+  </Step>
+  <Step title="Check status">
+    Use the request reference to check transaction status
+  </Step>
+</Steps>
+
+## Request body
+
+```json
+{
+  "requestReference": "038938738738",
+  "amount": 100.00,
+  "customerId": "12345",
+  "phoneNumber": "987-654-3210",
+  "paymentCode": 56789,
+  "customerName": "Alice Smith",
+  "sourceOfFunds": "Bank Account",
+  "narration": "Payment for order",
+  "depositorName": "Bob Johnson",
+  "location": "City XYZ",
+  "alternateCustomerId": "54321",
+  "pin": "1234",
+  "otp": "567890",
+  "currencyCode": "UGX"
+}
+```
+
+Reference: Phoenix API Sample.postman_collection.json:113-115
+
+### Required fields
+
+<ParamField path="requestReference" type="string" required>
+  Unique identifier for this payment. Must be unique across all transactions.
+</ParamField>
+
+<ParamField path="amount" type="double" required>
+  Transaction amount in the specified currency
+</ParamField>
+
+<ParamField path="customerId" type="string" required>
+  Customer's account number or identifier (validated in previous step)
+</ParamField>
+
+<ParamField path="paymentCode" type="long" required>
+  Payment item code identifying the service or biller
+</ParamField>
+
+### Authentication fields
+
+<ParamField path="pin" type="string">
+  Customer PIN for wallet payments. Encrypted before transmission.
+</ParamField>
+
+<ParamField path="otp" type="string">
+  One-time password if required by the biller. Encrypted before transmission.
+</ParamField>
+
+<Note>
+PIN and OTP values are automatically encrypted using AES-256-CBC encryption with the terminal session key before being sent to the API.
+</Note>
+
+### Optional fields
+
+<ParamField path="phoneNumber" type="string">
+  Customer phone number for notifications
+</ParamField>
+
+<ParamField path="customerName" type="string">
+  Full name of the customer
+</ParamField>
+
+<ParamField path="narration" type="string">
+  Payment description or purpose
+</ParamField>
+
+<ParamField path="sourceOfFunds" type="string">
+  Source of the payment (e.g., "Wallet", "Bank Account")
+</ParamField>
+
+<ParamField path="depositorName" type="string">
+  Name of the person making the deposit
+</ParamField>
+
+<ParamField path="location" type="string">
+  Transaction location or branch
+</ParamField>
+
+<ParamField path="currencyCode" type="string">
+  Currency code (e.g., UGX, USD). Defaults to UGX.
+</ParamField>
+
+<ParamField path="cardData" type="object">
+  Card payment details if paying by card. See card payment section below.
+</ParamField>
+
+## Implementation
+
+The payment processing logic is implemented in `PaymentsService.makePayment()`:
+
+```java
+public String makePayment(PaymentRequest request) throws Exception {
+    String endpointUrl = Constants.ROOT_LINK + "sente/xpayment";
+    request.setTerminalId(Constants.TERMINAL_ID);
+    
+    // Build additional data for signature
+    String additionalData = request.getAmount() + "&"
+        + request.getTerminalId() + "&"
+        + request.getRequestReference() + "&"
+        + request.getCustomerId() + "&" 
+        + request.getPaymentCode();
+
+    SystemResponse<KeyExchangeResponse> exchangeKeys = keyExchangeService.doKeyExchange();
+
+    if(exchangeKeys.getResponseCode().equals(PhoenixResponseCodes.APPROVED.CODE)) {
+        String authToken = exchangeKeys.getResponse().getAuthToken();
+        String sessionKey = exchangeKeys.getResponse().getTerminalKey();
+
+        // Encrypt OTP if provided
+        if(request.getOtp() != null)
+            request.setOtp(CryptoUtils.encrypt(
+                request.getOtp(), 
+                exchangeKeys.getResponse().getTerminalKey()
+            ));
+
+        Map<String,String> headers = AuthUtils.generateInterswitchAuth(
+            Constants.POST_REQUEST, 
+            endpointUrl, 
+            additionalData,
+            authToken,
+            sessionKey
+        );
+
+        return HttpUtil.postHTTPRequest(endpointUrl, headers, 
+            JSONDataTransform.marshall(request));
+    }
+    else {
+        return JSONDataTransform.marshall(exchangeKeys);
+    }
+}
+```
+
+Reference: PaymentsService.java:42-72
+
+## Security features
+
+### OTP encryption
+
+When an OTP is provided, it's encrypted using the terminal session key:
+
+```java
+if(request.getOtp() != null)
+    request.setOtp(CryptoUtils.encrypt(
+        request.getOtp(),
+        exchangeKeys.getResponse().getTerminalKey()
+    ));
+```
+
+Reference: PaymentsService.java:60-61
+
+### Signature generation
+
+Critical payment parameters are included in the signature to prevent tampering:
+
+```java
+String additionalData = request.getAmount() + "&"
+    + request.getTerminalId() + "&"
+    + request.getRequestReference() + "&"
+    + request.getCustomerId() + "&" 
+    + request.getPaymentCode();
+```
+
+Reference: PaymentsService.java:47-50
+
+The signature is generated using SHA-256 RSA signing with your private key.
+
+## Card payments
+
+For card-based payments, include the `cardData` object:
+
+```json
+{
+  "amount": 100.00,
+  "customerId": "12345",
+  "paymentCode": 56789,
+  "cardData": {
+    "pan": "5060990580000217499",
+    "expiryDate": "2512",
+    "track2": "5060990580000217499=2512101123456789",
+    "pinBlock": "encrypted_pin",
+    "accountType": "SAVINGS",
+    "posEntryMode": "051",
+    "posDataCode": "510101511344101"
+  }
+}
+```
+
+### Card data fields
+
+<ParamField path="cardData.pan" type="string">
+  Primary Account Number (card number)
+</ParamField>
+
+<ParamField path="cardData.expiryDate" type="string">
+  Card expiry date in YYMM format
+</ParamField>
+
+<ParamField path="cardData.track2" type="string">
+  Track 2 data from card magnetic stripe
+</ParamField>
+
+<ParamField path="cardData.pinBlock" type="string">
+  Encrypted PIN block
+</ParamField>
+
+<ParamField path="cardData.accountType" type="string">
+  Account type (SAVINGS, CURRENT, etc.)
+</ParamField>
+
+Reference: CardData.java:5-26
+
+## Response handling
+
+### Success response
+
+```json
+{
+  "responseCode": "90000",
+  "responseMessage": "TRANSACTION APPROVED",
+  "requestReference": "038938738738",
+  "transactionReference": "ISW20240315123456",
+  "amount": 100.00,
+  "customerId": "12345"
+}
+```
+
+<Tip>
+Save the `transactionReference` from the response. Use it to query transaction status or for reconciliation.
+</Tip>
+
+### Pending response
+
+Some transactions may be pending and require status checks:
+
+```json
+{
+  "responseCode": "90009",
+  "responseMessage": "REQUEST IN PROGRESS",
+  "requestReference": "038938738738"
+}
+```
+
+<Info>
+For pending transactions (code 90009), use the transaction status endpoint to check the final status.
+</Info>
+
+### Error responses
+
+| Response Code | Message | Action |
+|---------------|---------|--------|
+| 90051 | INSUFFICIENT FUNDS | Customer has insufficient balance |
+| 90055 | WRONG PIN OR OTP | Prompt user to re-enter PIN/OTP |
+| 90026 | DUPLICATE REQUEST REFERENCE | Use a new unique request reference |
+| 90052 | ACCOUNT NOT FOUND | Verify customer ID |
+| 90098 | EXCEEDS CONFIGURED LIMIT | Amount exceeds transaction limit |
+
+Reference: PhoenixResponseCodes.java:28-32
+
+## Code examples
+
+### Basic payment
+
+```java
+@Autowired
+private PaymentsService paymentsService;
+
+public String processPayment(String customerId, double amount, long paymentCode) {
+    try {
+        PaymentRequest request = new PaymentRequest();
+        request.setRequestReference(UUID.randomUUID().toString());
+        request.setCustomerId(customerId);
+        request.setPaymentCode(paymentCode);
+        request.setAmount(amount);
+        request.setPhoneNumber("256700000000");
+        request.setCurrencyCode("UGX");
+        request.setNarration("Bill payment");
+
+        String response = paymentsService.makePayment(request);
+        return response;
+        
+    } catch (Exception e) {
+        System.err.println("Payment failed: " + e.getMessage());
+        throw new PaymentException(e);
+    }
+}
+```
+
+### Payment with OTP
+
+```java
+public String processPaymentWithOTP(PaymentRequest request, String otp) {
+    try {
+        request.setRequestReference(UUID.randomUUID().toString());
+        request.setOtp(otp); // Will be encrypted automatically
+        
+        String response = paymentsService.makePayment(request);
+        return response;
+        
+    } catch (Exception e) {
+        System.err.println("Payment with OTP failed: " + e.getMessage());
+        throw new PaymentException(e);
+    }
+}
+```
+
+### Using the REST endpoint
+
+```bash
+curl -X POST http://localhost:8081/isw/payments/pay \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestReference": "038938738738",
+    "amount": 100.00,
+    "customerId": "12345",
+    "phoneNumber": "256700000000",
+    "paymentCode": 56789,
+    "customerName": "Alice Smith",
+    "currencyCode": "UGX",
+    "narration": "Bill payment"
+  }'
+```
+
+Reference: README.md:12
+
+## Best practices
+
+<Warning>
+**Never reuse request references**
+
+Each payment must have a unique `requestReference`. Reusing references will result in duplicate transaction errors.
+</Warning>
+
+### Idempotency
+
+The Phoenix API uses request references for idempotency. If you retry a payment with the same reference, you'll receive the original response without processing a duplicate payment.
+
+### Amount validation
+
+Validate amounts before submitting:
+
+```java
+if (amount <= 0) {
+    throw new IllegalArgumentException("Amount must be positive");
+}
+if (amount > MAX_TRANSACTION_LIMIT) {
+    throw new IllegalArgumentException("Amount exceeds maximum limit");
+}
+```
+
+### Response parsing
+
+Parse and validate the response before marking transactions as successful:
+
+```java
+JSONObject response = new JSONObject(responseString);
+String responseCode = response.getString("responseCode");
+
+if ("90000".equals(responseCode)) {
+    String transactionRef = response.getString("transactionReference");
+    // Save transaction reference
+    return transactionRef;
+} else if ("90009".equals(responseCode)) {
+    // Pending - check status later
+    scheduleStatusCheck(requestReference);
+} else {
+    String errorMessage = response.getString("responseMessage");
+    throw new PaymentException(errorMessage);
+}
+```
+
+### Error recovery
+
+Implement retry logic for transient errors:
+
+```java
+List<String> retryableCodes = Arrays.asList("90091", "90096");
+
+if (retryableCodes.contains(responseCode)) {
+    // Retry with exponential backoff
+    Thread.sleep(5000);
+    return retryPayment(request);
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Check transaction status" icon="list-check" href="/payments/transaction-status">
+    Monitor payment status using request references
+  </Card>
+  <Card title="Wallet balance" icon="wallet" href="/payments/wallet-balance">
+    Check available wallet balance before payments
+  </Card>
+</CardGroup>

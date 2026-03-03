@@ -1,122 +1,96 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Phoenix Java Middleware",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#1E40AF",
+    "light": "#3B82F6",
+    "dark": "#1E3A8A"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/jonahokot/phoenix-java-middleware"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/jonahokot/phoenix-java-middleware"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "configuration"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Authentication",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "authentication/overview",
+              "authentication/key-generation",
+              "authentication/client-registration",
+              "authentication/key-exchange"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Payment Operations",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "payments/overview",
+              "payments/validation",
+              "payments/making-payments",
+              "payments/transaction-status",
+              "payments/wallet-balance"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Biller Management",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "billers/overview",
+              "billers/categories",
+              "billers/category-billers",
+              "billers/biller-items"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Authentication Endpoints",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/auth/generate-keys",
+              "api-reference/auth/register-client",
+              "api-reference/auth/key-exchange"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Payment Endpoints",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/payments/validate-customer",
+              "api-reference/payments/make-payment",
+              "api-reference/payments/check-status",
+              "api-reference/payments/get-balance"
+            ]
+          },
+          {
+            "group": "Biller Endpoints",
+            "pages": [
+              "api-reference/billers/get-categories",
+              "api-reference/billers/get-category-billers",
+              "api-reference/billers/get-biller-items"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

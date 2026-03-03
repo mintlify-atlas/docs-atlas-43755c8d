@@ -1,0 +1,236 @@
+---
+title: Client registration
+description: Register your application with the Phoenix API to obtain credentials and authorization
+---
+
+# Client registration
+
+Client registration is a one-time process that registers your application with the Phoenix API and issues a new client secret that you'll use for all subsequent API calls.
+
+## Registration process
+
+The registration involves two API calls to Phoenix:
+
+1. **Initial registration** - Send client details and public key
+2. **Complete registration** - Confirm registration and receive new client secret
+
+<Steps>
+  <Step title="Generate keys">
+    First, generate an RSA key pair if you haven't already:
+    
+    ```bash
+    curl http://localhost:8081/isw/auth/generateKeys
+    ```
+    
+    Update `application.properties` with the keys.
+  </Step>
+  
+  <Step title="Prepare registration data">
+    Collect the required client information:
+    
+    ```json
+    {
+      "name": "Your Company Name",
+      "phoneNumber": "256-XXX-XXXX",
+      "nin": "National ID Number",
+      "gender": "Male",
+      "emailAddress": "contact@company.com",
+      "ownerPhoneNumber": "256-XXX-XXXX"
+    }
+    ```
+  </Step>
+  
+  <Step title="Call the registration endpoint">
+    Submit your registration:
+    
+    ```bash
+    curl -X POST http://localhost:8081/isw/auth/registerClient \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Your Company Name",
+        "phoneNumber": "256-XXX-XXXX",
+        "nin": "123456789",
+        "gender": "Male",
+        "emailAddress": "contact@company.com",
+        "ownerPhoneNumber": "256-XXX-XXXX"
+      }'
+    ```
+  </Step>
+  
+  <Step title="Save the new client secret">
+    If successful, you'll receive:
+    
+    ```
+    Successful, New Client Secret: YOUR_NEW_CLIENT_SECRET
+    ```
+    
+    Update `application.properties`:
+    
+    ```properties
+    app.client_secret=YOUR_NEW_CLIENT_SECRET
+    ```
+  </Step>
+  
+  <Step title="Restart the middleware">
+    Restart to use the new client secret:
+    
+    ```bash
+    # Stop the current process, then:
+    java -jar phoenix-api-middleware-1.0.0.jar
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+You must update the client secret in `application.properties` and restart the application after successful registration.
+</Warning>
+
+## Implementation details
+
+The registration process uses both RSA and elliptic curve cryptography:
+
+### Initial registration
+
+```java
+private String clientRegistrationRequest(String publicKey, String clientSessionPublicKey, 
+                                         String privateKey, ClientRegistrationDetail setup) {
+    
+    String registrationEndpointUrl = Constants.ROOT_LINK + "client/clientRegistration";
+    
+    // Set required fields
+    setup.setSerialId(Constants.MY_SERIAL_ID);
+    setup.setTerminalId(Constants.TERMINAL_ID);
+    setup.setPublicKey(publicKey);
+    setup.setClientSessionPublicKey(clientSessionPublicKey);
+    
+    // Generate authentication headers
+    Map<String,String> headers = AuthUtils.generateInterswitchAuth(
+        Constants.POST_REQUEST, registrationEndpointUrl, "", "", "", privateKey
+    );
+    
+    String json = JSONDataTransform.marshall(setup);
+    return HttpUtil.postHTTPRequest(registrationEndpointUrl, headers, json);
+}
+```
+*Source: RegistrationService.java:113-129*
+
+### Elliptic curve key exchange
+
+During registration, an ECDH key pair is generated for secure session establishment:
+
+```java
+EllipticCurveUtils curveUtils = new EllipticCurveUtils("ECDH");
+KeyPair keyPair = curveUtils.generateKeypair();
+String curvePrivateKey = curveUtils.getPrivateKey(keyPair);
+String curvePublicKey = curveUtils.getPublicKey(keyPair);
+```
+*Source: RegistrationService.java:60-63*
+
+### Complete registration
+
+After Phoenix approves the initial registration:
+
+```java
+private String completeRegistration(String terminalKey, String authToken, 
+                                   String transactionReference, String otp, 
+                                   String privateKey) throws Exception {
+    
+    CompleteClientRegistration completeReg = new CompleteClientRegistration();
+    
+    String passwordHash = UtilMethods.hash512(Constants.ACCOUNT_PWD);
+    completeReg.setTerminalId(Constants.TERMINAL_ID);
+    completeReg.setSerialId(Constants.MY_SERIAL_ID);
+    completeReg.setOtp(CryptoUtils.encrypt(otp, terminalKey));
+    completeReg.setPassword(CryptoUtils.encrypt(passwordHash, terminalKey));
+    completeReg.setTransactionReference(transactionReference);
+    
+    Map<String,String> headers = AuthUtils.generateInterswitchAuth(
+        Constants.POST_REQUEST, registrationCompletionEndpointUrl,
+        "", authToken, terminalKey, privateKey
+    );
+    
+    String json = JSONDataTransform.marshall(completeReg);
+    return HttpUtil.postHTTPRequest(registrationCompletionEndpointUrl, headers, json);
+}
+```
+*Source: RegistrationService.java:131-151*
+
+## Extracting the client secret
+
+The new client secret is encrypted with your public key:
+
+```java
+if(response.getResponse().getClientSecret() != null && 
+   response.getResponse().getClientSecret().length() > 5) {
+    
+    String clientSecret = CryptoUtils.decryptWithPrivate(
+        response.getResponse().getClientSecret(), privateKey
+    );
+    
+    return "Successful, New Client Secret: " + clientSecret;
+}
+```
+*Source: RegistrationService.java:94-99*
+
+## Registration fields
+
+Required fields for client registration:
+
+<ParamField path="name" type="string" required>
+  Your company or application name
+</ParamField>
+
+<ParamField path="phoneNumber" type="string" required>
+  Contact phone number (Uganda format)
+</ParamField>
+
+<ParamField path="nin" type="string" required>
+  National identification number
+</ParamField>
+
+<ParamField path="gender" type="string" required>
+  Gender (Male/Female)
+</ParamField>
+
+<ParamField path="emailAddress" type="string" required>
+  Contact email address
+</ParamField>
+
+<ParamField path="ownerPhoneNumber" type="string" required>
+  Owner's phone number
+</ParamField>
+
+## Troubleshooting
+
+### Registration failed
+
+If registration fails, check:
+
+- Public and private keys are correctly set in `application.properties`
+- Client ID and terminal ID are valid
+- All required fields are provided
+- Network connectivity to Phoenix API
+
+### Invalid credentials error
+
+Ensure:
+
+- Using the correct base URL for your environment (dev/prod)
+- Client ID matches the one provided by Interswitch
+- Keys were generated correctly
+
+<Info>
+You can re-register at any time if you need to rotate credentials or if registration fails. Each successful registration issues a new client secret.
+</Info>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Key exchange" icon="arrows-rotate" href="/authentication/key-exchange">
+    Establish secure sessions
+  </Card>
+  
+  <Card title="Process payments" icon="credit-card" href="/payments/overview">
+    Start making payments
+  </Card>
+</CardGroup>

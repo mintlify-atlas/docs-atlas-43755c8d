@@ -1,0 +1,189 @@
+---
+title: Authentication overview
+description: Understanding the Phoenix API authentication flow and security model
+---
+
+# Authentication overview
+
+The Phoenix Java Middleware implements a secure multi-step authentication process using RSA and elliptic curve cryptography to establish secure sessions with the Interswitch Phoenix API.
+
+## Authentication flow
+
+The complete authentication process consists of three main steps:
+
+<Steps>
+  <Step title="Generate RSA keys">
+    Create an RSA public-private key pair that will be used for encrypting sensitive data during communication.
+  </Step>
+  
+  <Step title="Register client">
+    Register your application with the Phoenix API using your credentials and public key. This process issues a new client secret.
+  </Step>
+  
+  <Step title="Perform key exchange">
+    Execute a daily key exchange to establish a secure session key for encrypting transaction data.
+  </Step>
+</Steps>
+
+<Warning>
+Key exchange must be performed daily or before each transaction session to maintain secure communication.
+</Warning>
+
+## Security architecture
+
+The middleware uses a multi-layered security approach:
+
+### RSA encryption (2048-bit)
+
+Used for:
+- Client registration
+- Encrypting session keys
+- Protecting sensitive credentials
+
+**Implementation**: `CryptoUtils.java` using Java's standard crypto libraries
+
+### Elliptic Curve Diffie-Hellman (ECDH)
+
+Used for:
+- Session key exchange
+- Deriving shared secrets
+- Securing transaction-level encryption
+
+**Implementation**: `EllipticCurveUtils.java` with Bouncy Castle provider
+
+### Signature-based authentication
+
+Every API request includes:
+- Client ID signature
+- Request timestamp
+- Request hash
+- Authorization headers
+
+**Implementation**: `AuthUtils.java` (AuthController.java:20-24)
+
+## Authentication components
+
+### AuthController
+
+Exposes three REST endpoints:
+
+```java
+@RestController
+@RequestMapping("isw/auth")
+public class AuthController {
+    
+    @GetMapping("/generateKeys")
+    public Map<String, String> clientRegistration() throws Exception {
+        return registrationService.generateKeys();
+    }
+    
+    @PostMapping("/registerClient")
+    public String clientRegistration(@RequestBody ClientRegistrationDetail detail) {
+        return registrationService.doRegistration(detail);
+    }
+    
+    @GetMapping("/keyExchange")
+    public SystemResponse<KeyExchangeResponse> keyExchange() throws Exception {
+        return keyExchangeService.doKeyExchange();
+    }
+}
+```
+*Source: AuthController.java:13-41*
+
+### RegistrationService
+
+Handles key generation and client registration:
+
+```java
+public Map<String,String> generateKeys() throws SystemApiException {
+    KeyPair pair = CryptoUtils.generateKeyPair();
+    String privateKey = Base64.encodeBase64String(pair.getPrivate().getEncoded());
+    String publicKey = Base64.encodeBase64String(pair.getPublic().getEncoded());
+    
+    Map keyPair = new HashMap();
+    keyPair.put("publicKey", publicKey);
+    keyPair.put("privateKey", privateKey);
+    
+    return keyPair;
+}
+```
+*Source: RegistrationService.java:23-33*
+
+### KeyExchangeService
+
+Manages secure session establishment:
+
+```java
+public SystemResponse<KeyExchangeResponse> doKeyExchange() throws Exception {
+    EllipticCurveUtils curveUtils = new EllipticCurveUtils("ECDH");
+    KeyPair pair = curveUtils.generateKeypair();
+    String privateKey = curveUtils.getPrivateKey(pair);
+    String publicKey = curveUtils.getPublicKey(pair);
+    
+    // Create key exchange request with ECDH public key
+    KeyExchangeRequest request = new KeyExchangeRequest();
+    request.setClientSessionPublicKey(publicKey);
+    // ... perform key exchange
+}
+```
+*Source: KeyExchangeService.java:14-32*
+
+## Automatic key exchange
+
+The middleware automatically handles key exchange before payment operations. The `PaymentsService` checks for valid session keys and performs key exchange when needed.
+
+<Info>
+You don't need to manually call key exchange before each payment—the middleware handles this automatically.
+</Info>
+
+## Response codes
+
+Authentication operations return standard Phoenix response codes:
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| `00` | Approved | Authentication successful |
+| `06` | Error | Check credentials and retry |
+| `96` | System error | Contact support |
+
+*Source: PhoenixResponseCodes.java*
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Secure key storage" icon="lock">
+    Store private keys securely and never commit them to version control
+  </Card>
+  
+  <Card title="Rotate credentials" icon="rotate">
+    Update client secret after registration and rotate keys periodically
+  </Card>
+  
+  <Card title="Daily key exchange" icon="clock">
+    Perform key exchange at application startup or daily
+  </Card>
+  
+  <Card title="Monitor sessions" icon="eye">
+    Track session expiry and re-authenticate when needed
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Generate keys" icon="key" href="/authentication/key-generation">
+    Create your RSA key pair
+  </Card>
+  
+  <Card title="Register client" icon="user-plus" href="/authentication/client-registration">
+    Complete the registration process
+  </Card>
+  
+  <Card title="Key exchange" icon="arrows-rotate" href="/authentication/key-exchange">
+    Establish secure sessions
+  </Card>
+  
+  <Card title="API reference" icon="code" href="/api-reference/auth/generate-keys">
+    View authentication endpoints
+  </Card>
+</CardGroup>

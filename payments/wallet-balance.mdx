@@ -1,0 +1,425 @@
+---
+title: Wallet balance
+description: Retrieve current wallet balance for your terminal using the Phoenix API
+---
+
+## Overview
+
+The wallet balance endpoint allows you to query the current available balance in your terminal's wallet. This is useful for checking available funds before processing payments, displaying balance to users, and reconciliation purposes.
+
+<Tip>
+Check wallet balance before processing large payments to ensure sufficient funds are available.
+</Tip>
+
+## Endpoint
+
+```
+GET /isw/payments/balance
+```
+
+Reference: PaymentsController.java:37-41
+
+## Use cases
+
+<CardGroup cols={2}>
+  <Card title="Pre-payment validation" icon="check-circle">
+    Verify sufficient funds before initiating payment transactions
+  </Card>
+  <Card title="Balance display" icon="eye">
+    Show current available balance in your application UI
+  </Card>
+  <Card title="Reconciliation" icon="calculator">
+    Compare expected balance with actual balance during reconciliation
+  </Card>
+  <Card title="Low balance alerts" icon="bell">
+    Monitor balance and trigger alerts when funds are running low
+  </Card>
+</CardGroup>
+
+## Implementation
+
+The balance retrieval is implemented in `PaymentsService.fetchBalance()`:
+
+```java
+public String fetchBalance() throws Exception {
+    String endpointUrl = Constants.ROOT_LINK + "sente/accountBalance";
+    String request = endpointUrl 
+        + "?terminalId=" + Constants.TERMINAL_ID 
+        + "&requestReference=" + java.util.UUID.randomUUID();
+
+    SystemResponse<KeyExchangeResponse> exchangeKeys = keyExchangeService.doKeyExchange();
+
+    if(exchangeKeys.getResponseCode().equals(PhoenixResponseCodes.APPROVED.CODE)) {
+        Map<String,String> headers = AuthUtils.generateInterswitchAuth(
+            Constants.GET_REQUEST, 
+            request, 
+            "",
+            exchangeKeys.getResponse().getAuthToken(),
+            exchangeKeys.getResponse().getTerminalKey()
+        );
+        return HttpUtil.getHTTPRequest(request, headers);
+    }
+    else {
+        return "Cannot Continue with balance Check,Key Exchange failed";
+    }
+}
+```
+
+Reference: PaymentsService.java:74-88
+
+## Request parameters
+
+The balance endpoint requires no request body. Query parameters are automatically included:
+
+<ParamField query="terminalId" type="string" required>
+  Your terminal ID (automatically added by the service)
+</ParamField>
+
+<ParamField query="requestReference" type="string" required>
+  Unique identifier for this balance request (automatically generated using UUID)
+</ParamField>
+
+<Note>
+The service automatically generates a unique request reference for each balance check using `java.util.UUID.randomUUID()`.
+</Note>
+
+## Response structure
+
+### Success response
+
+```json
+{
+  "responseCode": "90000",
+  "responseMessage": "TRANSACTION APPROVED",
+  "terminalId": "00000001",
+  "availableBalance": 1500000.00,
+  "ledgerBalance": 1500000.00,
+  "currencyCode": "UGX",
+  "accountName": "Company Name",
+  "requestReference": "a7f3e2c1-4b5d-6e7f-8a9b-0c1d2e3f4a5b"
+}
+```
+
+### Response fields
+
+<ResponseField name="responseCode" type="string">
+  Response code indicating success or failure. "90000" indicates success.
+</ResponseField>
+
+<ResponseField name="availableBalance" type="double">
+  Current available balance that can be used for transactions
+</ResponseField>
+
+<ResponseField name="ledgerBalance" type="double">
+  Total ledger balance including pending transactions
+</ResponseField>
+
+<ResponseField name="currencyCode" type="string">
+  Currency code of the wallet (e.g., UGX, USD)
+</ResponseField>
+
+<ResponseField name="accountName" type="string">
+  Name associated with the terminal account
+</ResponseField>
+
+### Error response
+
+```json
+{
+  "responseCode": "90091",
+  "responseMessage": "REMOTE SYSTEM TEMPORARILY UNAVAILABLE"
+}
+```
+
+## Code examples
+
+### Basic balance check
+
+```java
+@Autowired
+private PaymentsService paymentsService;
+
+public double getCurrentBalance() {
+    try {
+        String response = paymentsService.fetchBalance();
+        JSONObject json = new JSONObject(response);
+        
+        if ("90000".equals(json.getString("responseCode"))) {
+            return json.getDouble("availableBalance");
+        } else {
+            throw new BalanceCheckException(
+                "Failed to retrieve balance: " + json.getString("responseMessage")
+            );
+        }
+    } catch (Exception e) {
+        System.err.println("Balance check failed: " + e.getMessage());
+        throw new BalanceCheckException(e);
+    }
+}
+```
+
+### Validate sufficient balance
+
+```java
+public boolean hasSufficientBalance(double requiredAmount) {
+    try {
+        double availableBalance = getCurrentBalance();
+        return availableBalance >= requiredAmount;
+    } catch (Exception e) {
+        System.err.println("Cannot verify balance: " + e.getMessage());
+        return false;
+    }
+}
+```
+
+### Pre-payment balance check
+
+```java
+public void processPaymentWithBalanceCheck(PaymentRequest request) throws Exception {
+    double paymentAmount = request.getAmount();
+    
+    // Check balance first
+    String balanceResponse = paymentsService.fetchBalance();
+    JSONObject balanceJson = new JSONObject(balanceResponse);
+    
+    if (!"90000".equals(balanceJson.getString("responseCode"))) {
+        throw new BalanceCheckException("Cannot verify balance");
+    }
+    
+    double availableBalance = balanceJson.getDouble("availableBalance");
+    
+    if (availableBalance < paymentAmount) {
+        throw new InsufficientFundsException(
+            String.format("Insufficient balance. Available: %.2f, Required: %.2f",
+                availableBalance, paymentAmount)
+        );
+    }
+    
+    // Proceed with payment
+    String paymentResponse = paymentsService.makePayment(request);
+    // Handle payment response...
+}
+```
+
+### Display balance information
+
+```java
+public BalanceInfo getBalanceInfo() {
+    try {
+        String response = paymentsService.fetchBalance();
+        JSONObject json = new JSONObject(response);
+        
+        if ("90000".equals(json.getString("responseCode"))) {
+            BalanceInfo info = new BalanceInfo();
+            info.setAvailableBalance(json.getDouble("availableBalance"));
+            info.setLedgerBalance(json.getDouble("ledgerBalance"));
+            info.setCurrencyCode(json.getString("currencyCode"));
+            info.setAccountName(json.getString("accountName"));
+            return info;
+        } else {
+            throw new BalanceCheckException(json.getString("responseMessage"));
+        }
+    } catch (Exception e) {
+        throw new BalanceCheckException("Failed to retrieve balance", e);
+    }
+}
+```
+
+### Using the REST endpoint
+
+```bash
+curl -X GET http://localhost:8081/isw/payments/balance
+```
+
+Reference: README.md:13
+
+## Best practices
+
+### Caching balance data
+
+<Warning>
+**Don't cache balance data for too long**
+
+Balance can change rapidly due to ongoing transactions. Cache for a maximum of 1-2 minutes to avoid showing stale data.
+</Warning>
+
+```java
+private Double cachedBalance = null;
+private Long cacheTimestamp = null;
+private static final long CACHE_DURATION = 60000; // 1 minute
+
+public double getBalanceWithCache() throws Exception {
+    long now = System.currentTimeMillis();
+    
+    if (cachedBalance != null && 
+        cacheTimestamp != null && 
+        (now - cacheTimestamp) < CACHE_DURATION) {
+        return cachedBalance;
+    }
+    
+    // Refresh cache
+    cachedBalance = getCurrentBalance();
+    cacheTimestamp = now;
+    return cachedBalance;
+}
+```
+
+### Low balance monitoring
+
+Implement alerts for low balance conditions:
+
+```java
+private static final double LOW_BALANCE_THRESHOLD = 100000.00;
+
+public void checkAndAlertLowBalance() {
+    try {
+        double balance = getCurrentBalance();
+        
+        if (balance < LOW_BALANCE_THRESHOLD) {
+            sendLowBalanceAlert(
+                String.format("Wallet balance is low: %.2f UGX", balance)
+            );
+        }
+    } catch (Exception e) {
+        System.err.println("Failed to check balance: " + e.getMessage());
+    }
+}
+```
+
+### Scheduled balance checks
+
+Schedule periodic balance checks for monitoring:
+
+```java
+@Scheduled(cron = "0 0 9,15 * * ?") // 9 AM and 3 PM daily
+public void scheduledBalanceCheck() {
+    try {
+        String response = paymentsService.fetchBalance();
+        JSONObject json = new JSONObject(response);
+        
+        if ("90000".equals(json.getString("responseCode"))) {
+            double balance = json.getDouble("availableBalance");
+            
+            // Log balance
+            logger.info("Current wallet balance: {} {}", 
+                balance, json.getString("currencyCode"));
+            
+            // Check threshold
+            checkAndAlertLowBalance();
+            
+            // Store for reporting
+            saveBalanceHistory(balance);
+        }
+    } catch (Exception e) {
+        logger.error("Scheduled balance check failed", e);
+    }
+}
+```
+
+### Error handling
+
+Implement comprehensive error handling:
+
+```java
+public Double getBalanceWithRetry() {
+    int maxRetries = 3;
+    int delay = 2000; // 2 seconds
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            String response = paymentsService.fetchBalance();
+            JSONObject json = new JSONObject(response);
+            
+            if ("90000".equals(json.getString("responseCode"))) {
+                return json.getDouble("availableBalance");
+            } else if ("90091".equals(json.getString("responseCode"))) {
+                // System temporarily unavailable - retry
+                if (attempt < maxRetries) {
+                    Thread.sleep(delay * attempt);
+                    continue;
+                }
+            } else {
+                // Other error - don't retry
+                throw new BalanceCheckException(
+                    json.getString("responseMessage")
+                );
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BalanceCheckException("Interrupted during retry", e);
+        } catch (Exception e) {
+            if (attempt == maxRetries) {
+                throw new BalanceCheckException(
+                    "Failed after " + maxRetries + " attempts", e
+                );
+            }
+        }
+    }
+    
+    return null;
+}
+```
+
+## Balance vs ledger balance
+
+<Info>
+**Available balance** is the amount you can currently use for transactions.
+
+**Ledger balance** includes pending transactions and may be higher than available balance.
+</Info>
+
+Always use `availableBalance` when validating if sufficient funds exist for a new transaction:
+
+```java
+if (availableBalance >= requiredAmount) {
+    // Sufficient funds
+} else {
+    // Insufficient funds
+}
+```
+
+## Common error codes
+
+| Response Code | Message | Action |
+|---------------|---------|--------|
+| 90000 | TRANSACTION APPROVED | Balance retrieved successfully |
+| 90091 | REMOTE SYSTEM TEMPORARILY UNAVAILABLE | Retry after a delay |
+| 90096 | AN ERROR OCCURRED | Check system logs and retry |
+| 90063 | AUTHORIZATION ERROR | Verify credentials and terminal configuration |
+
+Reference: PhoenixResponseCodes.java:7-9
+
+## Integration with payment flow
+
+Integrate balance checks into your payment workflow:
+
+```java
+public String processPaymentWorkflow(PaymentRequest request) throws Exception {
+    // Step 1: Check balance
+    if (!hasSufficientBalance(request.getAmount())) {
+        throw new InsufficientFundsException("Wallet balance too low");
+    }
+    
+    // Step 2: Validate customer
+    String validationResponse = paymentsService.validateCustomer(request);
+    JSONObject validation = new JSONObject(validationResponse);
+    if (!"90000".equals(validation.getString("responseCode"))) {
+        throw new ValidationException("Customer validation failed");
+    }
+    
+    // Step 3: Process payment
+    String paymentResponse = paymentsService.makePayment(request);
+    return paymentResponse;
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Process payments" icon="credit-card" href="/payments/making-payments">
+    Execute payment transactions after verifying balance
+  </Card>
+  <Card title="Payment operations" icon="book" href="/payments/overview">
+    Return to payment operations overview
+  </Card>
+</CardGroup>

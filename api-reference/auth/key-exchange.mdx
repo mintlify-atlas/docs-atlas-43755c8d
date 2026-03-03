@@ -1,0 +1,75 @@
+---
+title: Key exchange
+description: Exchange session keys and obtain authentication token
+---
+
+Performs a key exchange operation to establish a secure session and obtain an authentication token. This endpoint is used after client registration to set up secure communication.
+
+## Endpoint
+
+```
+GET /isw/auth/keyExchange
+```
+
+## Authentication
+
+May require authentication depending on system configuration.
+
+## Response
+
+Returns a system response containing key exchange details wrapped in a standard response structure.
+
+<ResponseField name="responseCode" type="string" required>
+  Status code of the response
+</ResponseField>
+
+<ResponseField name="responseMessage" type="string" required>
+  Human-readable message describing the response
+</ResponseField>
+
+<ResponseField name="response" type="object" required>
+  Key exchange response data
+  
+  <ResponseField name="response.authToken" type="string" required>
+    Authentication token for subsequent API requests
+  </ResponseField>
+  
+  <ResponseField name="response.serverSessionPublicKey" type="string" required>
+    Server's session public key for encrypting requests
+  </ResponseField>
+  
+  <ResponseField name="response.expireTime" type="string" required>
+    Token expiration timestamp
+  </ResponseField>
+  
+  <ResponseField name="response.requiresOtp" type="boolean" required>
+    Indicates whether OTP verification is required
+  </ResponseField>
+  
+  <ResponseField name="response.terminalKey" type="string">
+    Terminal-specific key for additional security
+  </ResponseField>
+</ResponseField>
+
+## Example request
+
+```bash cURL
+curl --request GET \
+  --url http://localhost:8081/isw/auth/keyExchange
+```
+
+## Example response
+
+```json
+{
+  "responseCode": "00",
+  "responseMessage": "Successful",
+  "response": {
+    "authToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "serverSessionPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...",
+    "expireTime": "2026-03-03T12:00:00Z",
+    "requiresOtp": false,
+    "terminalKey": "TERM_KEY_12345"
+  }
+}
+```

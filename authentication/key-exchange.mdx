@@ -1,0 +1,290 @@
+---
+title: Key exchange
+description: Establish secure sessions with daily key exchange using ECDH cryptography
+---
+
+# Key exchange
+
+Key exchange is a critical security operation that must be performed daily or before each payment session. It establishes a shared secret (terminal key) used to encrypt sensitive payment data.
+
+## Why key exchange is required
+
+The Phoenix API uses session-based encryption for payment operations. Each session requires:
+
+- A unique terminal key derived from ECDH key exchange
+- An authentication token for the session
+- Session expiry tracking
+
+<Warning>
+Key exchange must be performed:
+- At application startup
+- Daily (sessions expire after 24 hours)
+- Before processing payments if the session has expired
+</Warning>
+
+## How it works
+
+The key exchange process uses Elliptic Curve Diffie-Hellman (ECDH) to derive a shared secret:
+
+<Steps>
+  <Step title="Generate ECDH key pair">
+    The middleware generates an ephemeral ECDH key pair:
+    
+    ```java
+    EllipticCurveUtils curveUtils = new EllipticCurveUtils("ECDH");
+    KeyPair pair = curveUtils.generateKeypair();
+    String privateKey = curveUtils.getPrivateKey(pair);
+    String publicKey = curveUtils.getPublicKey(pair);
+    ```
+    *Source: KeyExchangeService.java:18-21*
+  </Step>
+  
+  <Step title="Send public key to Phoenix">
+    The ECDH public key is sent to Phoenix along with authentication data:
+    
+    ```java
+    KeyExchangeRequest request = new KeyExchangeRequest();
+    request.setTerminalId(Constants.TERMINAL_ID);
+    request.setSerialId(Constants.MY_SERIAL_ID);
+    request.setClientSessionPublicKey(publicKey);
+    
+    String passwordHash = UtilMethods.hash512(Constants.ACCOUNT_PWD) + 
+                         request.getRequestReference() + 
+                         Constants.MY_SERIAL_ID;
+    request.setPassword(CryptoUtils.signWithPrivateKey(passwordHash));
+    ```
+    *Source: KeyExchangeService.java:23-30*
+  </Step>
+  
+  <Step title="Receive Phoenix's public key">
+    Phoenix responds with its ECDH public key (encrypted with your RSA public key):
+    
+    ```java
+    String clearServerSessionKey = CryptoUtils.decryptWithPrivate(
+        keyxchangeResponse.getResponse().getServerSessionPublicKey()
+    );
+    ```
+    *Source: KeyExchangeService.java:41-42*
+  </Step>
+  
+  <Step title="Derive terminal key">
+    The shared secret (terminal key) is computed using ECDH:
+    
+    ```java
+    String terminalkey = new EllipticCurveUtils("ECDH").doECDH(
+        privateKey, clearServerSessionKey
+    );
+    keyxchangeResponse.getResponse().setTerminalKey(terminalkey);
+    ```
+    *Source: KeyExchangeService.java:43-44*
+  </Step>
+</Steps>
+
+## Performing key exchange
+
+### Manual key exchange
+
+To manually trigger key exchange:
+
+```bash
+curl http://localhost:8081/isw/auth/keyExchange
+```
+
+**Successful response:**
+
+```json
+{
+  "responseCode": "00",
+  "responseMessage": "Approved",
+  "response": {
+    "authToken": "decrypted-auth-token",
+    "serverSessionPublicKey": "server-public-key",
+    "expireTime": "2024-03-04T16:30:00",
+    "requiresOtp": false,
+    "terminalKey": "derived-terminal-key"
+  }
+}
+```
+
+### Automatic key exchange
+
+The middleware automatically performs key exchange when needed. The `PaymentsService` checks session validity before each operation.
+
+<Info>
+You typically don't need to call key exchange manually—the middleware handles it automatically before payment operations.
+</Info>
+
+## Implementation
+
+The complete key exchange implementation:
+
+```java
+public SystemResponse<KeyExchangeResponse> doKeyExchange() throws Exception {
+    String endpointUrl = Constants.ROOT_LINK + "client/doKeyExchange";
+    
+    // Generate ECDH key pair
+    EllipticCurveUtils curveUtils = new EllipticCurveUtils("ECDH");
+    KeyPair pair = curveUtils.generateKeypair();
+    String privateKey = curveUtils.getPrivateKey(pair);
+    String publicKey = curveUtils.getPublicKey(pair);
+    
+    // Create request
+    KeyExchangeRequest request = new KeyExchangeRequest();
+    request.setTerminalId(Constants.TERMINAL_ID);
+    request.setSerialId(Constants.MY_SERIAL_ID);
+    request.setRequestReference(java.util.UUID.randomUUID().toString());
+    request.setAppVersion(Constants.APP_VERSION);
+    request.setClientSessionPublicKey(publicKey);
+    
+    // Sign password
+    String passwordHash = UtilMethods.hash512(Constants.ACCOUNT_PWD) + 
+                         request.getRequestReference() + 
+                         Constants.MY_SERIAL_ID;
+    request.setPassword(CryptoUtils.signWithPrivateKey(passwordHash));
+    
+    // Send request
+    Map<String, String> headers = AuthUtils.generateInterswitchAuth(
+        Constants.POST_REQUEST, endpointUrl, "", "", ""
+    );
+    String json = JSONDataTransform.marshall(request);
+    String response = HttpUtil.postHTTPRequest(endpointUrl, headers, json);
+    
+    // Process response
+    SystemResponse<KeyExchangeResponse> keyxchangeResponse = 
+        UtilMethods.unMarshallSystemResponseObject(response, KeyExchangeResponse.class);
+    
+    if (keyxchangeResponse.getResponseCode().equals(PhoenixResponseCodes.APPROVED.CODE)) {
+        // Decrypt server's public key
+        String clearServerSessionKey = CryptoUtils.decryptWithPrivate(
+            keyxchangeResponse.getResponse().getServerSessionPublicKey()
+        );
+        
+        // Derive shared secret
+        String terminalkey = new EllipticCurveUtils("ECDH").doECDH(
+            privateKey, clearServerSessionKey
+        );
+        keyxchangeResponse.getResponse().setTerminalKey(terminalkey);
+        
+        // Decrypt auth token if present
+        if (!keyxchangeResponse.getResponse().getAuthToken().isEmpty()) {
+            keyxchangeResponse.getResponse().setAuthToken(
+                CryptoUtils.decryptWithPrivate(
+                    keyxchangeResponse.getResponse().getAuthToken()
+                )
+            );
+        }
+        
+        return keyxchangeResponse;
+    } else {
+        keyxchangeResponse.setResponseMessage(
+            keyxchangeResponse.getResponseMessage() + 
+            " during Key Exchange, check that you are using correct credentials"
+        );
+        return keyxchangeResponse;
+    }
+}
+```
+*Source: KeyExchangeService.java:14-55*
+
+## Response fields
+
+<ResponseField name="responseCode" type="string">
+  Response code (`00` = success)
+</ResponseField>
+
+<ResponseField name="responseMessage" type="string">
+  Human-readable response message
+</ResponseField>
+
+<ResponseField name="response" type="object">
+  <Expandable title="properties">
+    <ResponseField name="authToken" type="string">
+      Authentication token for the session (decrypted)
+    </ResponseField>
+    
+    <ResponseField name="serverSessionPublicKey" type="string">
+      Phoenix's ECDH public key
+    </ResponseField>
+    
+    <ResponseField name="expireTime" type="string">
+      Session expiration timestamp
+    </ResponseField>
+    
+    <ResponseField name="requiresOtp" type="boolean">
+      Whether OTP is required for transactions
+    </ResponseField>
+    
+    <ResponseField name="terminalKey" type="string">
+      Derived terminal key (not sent by Phoenix, computed locally)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Session management
+
+After successful key exchange:
+
+1. **Store the terminal key** - Used to encrypt payment data
+2. **Store the auth token** - Required for authenticated API calls
+3. **Track expiry time** - Re-exchange when session expires
+
+<Tip>
+Implement session caching to avoid unnecessary key exchanges. The middleware handles this automatically.
+</Tip>
+
+## Using the terminal key
+
+The terminal key is used to encrypt sensitive payment data:
+
+```java
+// Encrypt OTP
+String encryptedOtp = CryptoUtils.encrypt(otp, terminalKey);
+
+// Encrypt password
+String passwordHash = UtilMethods.hash512(password);
+String encryptedPassword = CryptoUtils.encrypt(passwordHash, terminalKey);
+```
+
+*Used in: PaymentsService.java, RegistrationService.java*
+
+## Troubleshooting
+
+### Key exchange failed
+
+Common causes:
+
+- Invalid client credentials
+- Expired client secret
+- Incorrect password in configuration
+- Network connectivity issues
+
+**Solution:** Verify credentials in `application.properties` and check network access to Phoenix API.
+
+### Session expired
+
+If you receive session expiry errors:
+
+1. Manually trigger key exchange:
+   ```bash
+   curl http://localhost:8081/isw/auth/keyExchange
+   ```
+
+2. Check the `expireTime` in the response
+
+3. Implement automatic re-exchange before expiry
+
+<Info>
+The middleware automatically re-exchanges keys when needed, so session expiry is handled transparently.
+</Info>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Process payments" icon="credit-card" href="/payments/overview">
+    Start processing payments with your session
+  </Card>
+  
+  <Card title="API reference" icon="code" href="/api-reference/auth/key-exchange">
+    View the key exchange API documentation
+  </Card>
+</CardGroup>

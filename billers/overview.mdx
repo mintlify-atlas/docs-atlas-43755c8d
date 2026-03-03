@@ -1,0 +1,86 @@
+---
+title: Biller management overview
+description: Learn how to query billers, categories, and payment items in the Phoenix Java middleware
+---
+
+The Phoenix Java middleware provides a comprehensive biller management system that allows you to retrieve biller categories, get billers by category, and fetch payment items for specific billers.
+
+## How biller management works
+
+The biller management functionality is built around three main operations:
+
+<Steps>
+  <Step title="Get biller categories">
+    Retrieve all available biller categories for your terminal. Categories group related billers together (e.g., utilities, telecommunications, government services).
+  </Step>
+  
+  <Step title="Get billers by category">
+    Once you have a category ID, fetch all billers within that category to present payment options to your users.
+  </Step>
+  
+  <Step title="Get payment items">
+    For a specific biller, retrieve all available payment items (products or services) that customers can pay for.
+  </Step>
+</Steps>
+
+## Controller implementation
+
+All biller-related endpoints are exposed through the `PaymentsController` class:
+
+```java PaymentsController.java:43-59
+@GetMapping("/billerCategories")
+public String getBillerCategories() throws Exception {
+
+    return paymentsService.getCategories();
+}
+
+@GetMapping("/categoryBillers")
+public String getBillersByCategory(@PathParam("categoryId") String categoryId) throws Exception {
+
+    return paymentsService.getCategoryBillers(categoryId);
+}
+
+@GetMapping("/billerItems")
+public String getPaymentItemsByBiller(@PathParam("billerId") String billerId) throws Exception {
+
+    return paymentsService.getBillerItems(billerId);
+}
+```
+
+## Authentication requirements
+
+<Warning>
+All biller management endpoints require successful key exchange before making requests. The middleware automatically handles this through the `KeyExchangeService`.
+</Warning>
+
+Each biller query operation:
+1. Performs a key exchange to obtain an auth token and terminal key
+2. Generates Interswitch authentication headers
+3. Makes the HTTP GET request to the Phoenix API
+4. Returns the response data
+
+## API endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/isw/payments/billerCategories` | GET | Retrieve all biller categories |
+| `/isw/payments/categoryBillers` | GET | Get billers for a specific category |
+| `/isw/payments/billerItems` | GET | Get payment items for a biller |
+
+<Info>
+The base URL for the middleware is `localhost:8081` by default. All endpoints are prefixed with `/isw/payments`.
+</Info>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Get categories" icon="folder-tree" href="/billers/categories">
+    Learn how to retrieve biller categories
+  </Card>
+  <Card title="Get billers" icon="building" href="/billers/category-billers">
+    Fetch billers by category ID
+  </Card>
+  <Card title="Get payment items" icon="list" href="/billers/biller-items">
+    Retrieve payment items for a biller
+  </Card>
+</CardGroup>

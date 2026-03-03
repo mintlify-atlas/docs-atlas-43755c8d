@@ -1,0 +1,92 @@
+---
+title: Getting biller categories
+description: Retrieve all available biller categories for your terminal
+---
+
+Biller categories group related billers together, making it easier for users to navigate and find the services they want to pay for. This endpoint returns all categories available to your terminal.
+
+## Endpoint details
+
+**GET** `/isw/payments/billerCategories`
+
+This endpoint does not require any parameters and returns all biller categories configured for your terminal ID.
+
+## Service implementation
+
+The `getCategories()` method in `PaymentsService` handles the category retrieval:
+
+```java PaymentsService.java:106-119
+public String getCategories() throws Exception {
+
+	String endpointUrl =  Constants.BILLERS_ROOT +  "categories-by-client/"+Constants.TERMINAL_ID+"/"+ Constants.TERMINAL_ID;
+
+	SystemResponse<KeyExchangeResponse> exchangeKeys = keyExchangeService.doKeyExchange();
+
+	if(exchangeKeys.getResponseCode().equals(PhoenixResponseCodes.APPROVED.CODE)) {
+		Map<String,String> headers = AuthUtils.generateInterswitchAuth(Constants.GET_REQUEST, endpointUrl, "",exchangeKeys.getResponse().getAuthToken(),exchangeKeys.getResponse().getTerminalKey());
+		return HttpUtil.getHTTPRequest(endpointUrl, headers);
+	}
+	else {
+		return "Cannot Fetch Categories,Key Exchange failed";
+	}
+}
+```
+
+## How it works
+
+<Steps>
+  <Step title="Key exchange">
+    The service performs a key exchange operation to obtain authentication credentials.
+  </Step>
+  
+  <Step title="Build endpoint URL">
+    Constructs the full endpoint URL using the billers root and terminal ID: `{BILLERS_ROOT}/categories-by-client/{TERMINAL_ID}/{TERMINAL_ID}`
+  </Step>
+  
+  <Step title="Generate auth headers">
+    Creates Interswitch authentication headers using the auth token and terminal key from the key exchange.
+  </Step>
+  
+  <Step title="Make HTTP request">
+    Sends a GET request to the Phoenix API and returns the response containing all available categories.
+  </Step>
+</Steps>
+
+## Making a request
+
+Use the Postman collection or make a direct HTTP request:
+
+```bash
+curl http://localhost:8081/isw/payments/billerCategories
+```
+
+<Info>
+The middleware automatically handles authentication, so you don't need to manually include auth headers when calling the middleware endpoints.
+</Info>
+
+## Error handling
+
+<Warning>
+If the key exchange fails, the service returns the error message: "Cannot Fetch Categories,Key Exchange failed"
+</Warning>
+
+Ensure that:
+- Your client credentials are properly configured in `application.properties`
+- The terminal ID is valid and active
+- Network connectivity to the Phoenix API is available
+
+## Response format
+
+The endpoint returns a JSON response containing all available biller categories. Each category includes:
+- Category ID (used to fetch billers in that category)
+- Category name
+- Category description
+- Other metadata
+
+## Next steps
+
+Once you have the category IDs, you can:
+
+<Card title="Get billers by category" icon="arrow-right" href="/billers/category-billers">
+  Use the category ID to retrieve all billers within that category
+</Card>

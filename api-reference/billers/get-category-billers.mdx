@@ -1,0 +1,108 @@
+---
+title: Get billers by category
+description: Retrieve all billers within a specific category
+---
+
+Retrieves all billers that belong to a specific category. Use this endpoint after obtaining a category ID from the [Get biller categories](/api-reference/billers/get-categories) endpoint.
+
+## Endpoint
+
+```
+GET /isw/payments/categoryBillers
+```
+
+## Authentication
+
+This endpoint requires authentication using Interswitch's signature-based authentication. The middleware automatically handles key exchange and generates the required authentication headers including:
+
+- Authorization token
+- Terminal key from key exchange
+- Request signature
+
+## Request
+
+<ParamField query="categoryId" type="string" required>
+  The unique identifier of the category to fetch billers for. Obtained from the Get biller categories endpoint.
+</ParamField>
+
+### Example request
+
+```
+GET /isw/payments/categoryBillers?categoryId=10
+```
+
+## Response
+
+Returns a JSON response containing an array of billers in the specified category.
+
+<ResponseField name="billers" type="array">
+  Array of biller objects within the category
+  
+  <ResponseField name="billerId" type="string">
+    Unique identifier for the biller
+  </ResponseField>
+  
+  <ResponseField name="billerName" type="string">
+    Display name of the biller
+  </ResponseField>
+  
+  <ResponseField name="billerCode" type="string">
+    Code identifier for the biller
+  </ResponseField>
+  
+  <ResponseField name="categoryId" type="string">
+    The category this biller belongs to
+  </ResponseField>
+</ResponseField>
+
+## Code example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://localhost:8081/isw/payments/categoryBillers?categoryId=10' \
+  --header 'Content-Type: application/json'
+```
+
+```java Java
+String categoryId = "10";
+String response = restTemplate.getForObject(
+    "http://localhost:8081/isw/payments/categoryBillers?categoryId=" + categoryId,
+    String.class
+);
+```
+
+```javascript JavaScript
+const categoryId = '10';
+const response = await fetch(
+  `http://localhost:8081/isw/payments/categoryBillers?categoryId=${categoryId}`,
+  {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+const billers = await response.json();
+```
+
+</CodeGroup>
+
+## Error responses
+
+If the key exchange fails, the endpoint returns an error message:
+
+```json
+{
+  "error": "Cannot Fetch Billers,Key Exchange failed"
+}
+```
+
+## Next steps
+
+After retrieving billers:
+
+1. Use a biller ID to fetch payment items using [Get biller items](/api-reference/billers/get-biller-items)
+2. Display billers to users for service selection

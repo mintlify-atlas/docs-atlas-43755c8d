@@ -1,0 +1,44 @@
+---
+title: Generate keys
+description: Generate RSA key pair for client registration
+---
+
+Generates an RSA public-private key pair for client registration. The public key is used during the client registration process, while the private key should be securely stored on the client side.
+
+## Endpoint
+
+```
+GET /isw/auth/generateKeys
+```
+
+## Authentication
+
+No authentication required.
+
+## Response
+
+Returns a map containing the generated key pair.
+
+<ResponseField name="publicKey" type="string" required>
+  The RSA public key in string format
+</ResponseField>
+
+<ResponseField name="privateKey" type="string" required>
+  The RSA private key in string format. Must be securely stored by the client
+</ResponseField>
+
+## Example request
+
+```bash cURL
+curl --request GET \
+  --url http://localhost:8081/isw/auth/generateKeys
+```
+
+## Example response
+
+```json
+{
+  "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...",
+  "privateKey": "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQD..."
+}
+```

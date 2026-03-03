@@ -1,0 +1,285 @@
+---
+title: Customer validation
+description: Validate customer account details before processing payments using the Phoenix API
+---
+
+## Overview
+
+Customer validation is a critical step before processing any payment transaction. The validation endpoint verifies that the customer ID, payment code, and other account details are correct and that the customer is eligible to receive payments.
+
+<Info>
+Always validate customer details before initiating a payment to prevent failed transactions and improve user experience.
+</Info>
+
+## Endpoint
+
+```
+POST /isw/payments/validation
+```
+
+Reference: PaymentsController.java:19-23
+
+## How it works
+
+The validation process follows these steps:
+
+<Steps>
+  <Step title="Key exchange">
+    The service performs a key exchange to obtain authentication tokens and session keys
+  </Step>
+  <Step title="Request preparation">
+    The terminal ID is automatically set and the request is serialized to JSON
+  </Step>
+  <Step title="Authentication">
+    Interswitch authentication headers are generated with timestamp, nonce, and signature
+  </Step>
+  <Step title="API call">
+    The request is sent to the Phoenix API endpoint `/sente/customerValidation`
+  </Step>
+  <Step title="Response">
+    The API returns customer details and validation status
+  </Step>
+</Steps>
+
+## Request body
+
+The validation endpoint accepts a `PaymentRequest` object:
+
+```json
+{
+  "requestReference": "038938738738",
+  "amount": 100.00,
+  "customerId": "12345",
+  "phoneNumber": "987-654-3210",
+  "paymentCode": 56789,
+  "customerName": "Alice Smith",
+  "sourceOfFunds": "Bank Account",
+  "narration": "Payment for order",
+  "depositorName": "Bob Johnson",
+  "location": "City XYZ",
+  "currencyCode": "UGX"
+}
+```
+
+Reference: Phoenix API Sample.postman_collection.json:84-86
+
+### Required fields
+
+<ParamField path="requestReference" type="string" required>
+  Unique identifier for this validation request. Must be unique across all requests.
+</ParamField>
+
+<ParamField path="customerId" type="string" required>
+  The customer's account number or identifier
+</ParamField>
+
+<ParamField path="paymentCode" type="long" required>
+  The payment item code identifying the service or biller
+</ParamField>
+
+<ParamField path="amount" type="double" required>
+  Transaction amount to validate
+</ParamField>
+
+### Optional fields
+
+<ParamField path="phoneNumber" type="string">
+  Customer's phone number for notifications
+</ParamField>
+
+<ParamField path="customerName" type="string">
+  Full name of the customer
+</ParamField>
+
+<ParamField path="narration" type="string">
+  Description or purpose of the payment
+</ParamField>
+
+<ParamField path="currencyCode" type="string">
+  Currency code (e.g., UGX, USD). Defaults to UGX if not specified.
+</ParamField>
+
+<ParamField path="alternateCustomerId" type="string">
+  Alternative customer identifier if applicable
+</ParamField>
+
+## Implementation
+
+The validation logic is implemented in the `PaymentsService`:
+
+```java
+public String validateCustomer(PaymentRequest request) throws Exception {
+    String endpointUrl = Constants.ROOT_LINK + "sente/customerValidation";
+    request.setTerminalId(Constants.TERMINAL_ID);
+
+    SystemResponse<KeyExchangeResponse> exchangeKeys = keyExchangeService.doKeyExchange();
+
+    if(exchangeKeys.getResponseCode().equals(PhoenixResponseCodes.APPROVED.CODE)) {
+        Map<String,String> headers = AuthUtils.generateInterswitchAuth(
+            Constants.POST_REQUEST, 
+            endpointUrl, 
+            "",
+            exchangeKeys.getResponse().getAuthToken(),
+            exchangeKeys.getResponse().getTerminalKey()
+        );
+
+        String jsonString = JSONDataTransform.marshall(request);
+        return HttpUtil.postHTTPRequest(endpointUrl, headers, jsonString);
+    }
+    else {
+        return JSONDataTransform.marshall(exchangeKeys);
+    }
+}
+```
+
+Reference: PaymentsService.java:22-40
+
+## Response handling
+
+The validation endpoint returns a JSON response with customer details:
+
+### Success response
+
+```json
+{
+  "responseCode": "90000",
+  "responseMessage": "TRANSACTION APPROVED",
+  "customerName": "Alice Smith",
+  "customerId": "12345",
+  "amount": 100.00,
+  "currencyCode": "UGX"
+}
+```
+
+<Note>
+A response code of `90000` indicates successful validation. The customer is eligible to receive payments.
+</Note>
+
+### Error responses
+
+| Response Code | Message | Action |
+|---------------|---------|--------|
+| 90052 | UN RECOGNIZABLE CUSTOMER NUMBER | Verify customer ID is correct |
+| 90013 | INVALID AMOUNT | Check amount is within acceptable range |
+| 70017 | INVALID PAYMENT ITEM | Verify payment code is correct |
+| 90030 | FORMAT ERROR | Check request format and required fields |
+| 90091 | REMOTE SYSTEM TEMPORARILY UNAVAILABLE | Retry after a delay |
+
+Reference: PhoenixResponseCodes.java:25-29
+
+## Code example
+
+Here's a complete example of calling the validation endpoint:
+
+```java
+@Autowired
+private PaymentsService paymentsService;
+
+public void validateCustomerAccount() {
+    try {
+        PaymentRequest request = new PaymentRequest();
+        request.setRequestReference(UUID.randomUUID().toString());
+        request.setCustomerId("12345");
+        request.setPaymentCode(56789L);
+        request.setAmount(100.00);
+        request.setPhoneNumber("256700000000");
+        request.setCustomerName("Alice Smith");
+        request.setCurrencyCode("UGX");
+        request.setNarration("School fees payment");
+
+        String response = paymentsService.validateCustomer(request);
+        
+        // Parse and handle response
+        System.out.println("Validation response: " + response);
+        
+    } catch (Exception e) {
+        System.err.println("Validation failed: " + e.getMessage());
+    }
+}
+```
+
+## Using the REST endpoint
+
+You can call the validation endpoint directly via HTTP:
+
+```bash
+curl -X POST http://localhost:8081/isw/payments/validation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestReference": "038938738738",
+    "amount": 100.00,
+    "customerId": "12345",
+    "phoneNumber": "987-654-3210",
+    "paymentCode": 56789,
+    "customerName": "Alice Smith",
+    "currencyCode": "UGX"
+  }'
+```
+
+Reference: README.md:11
+
+## Best practices
+
+<Warning>
+**Always use unique request references**
+
+Each validation request must have a unique `requestReference`. Duplicate references will result in a `90026` error code.
+</Warning>
+
+<Tip>
+**Validate before payment**
+
+Perform customer validation before initiating the payment transaction to catch errors early and provide better user feedback.
+</Tip>
+
+### Request reference generation
+
+Generate unique request references using UUID:
+
+```java
+String requestReference = UUID.randomUUID().toString();
+request.setRequestReference(requestReference);
+```
+
+### Error handling
+
+Implement proper error handling for validation failures:
+
+```java
+if (responseCode.equals("90000")) {
+    // Proceed with payment
+} else if (responseCode.equals("90052")) {
+    // Invalid customer ID
+    throw new InvalidCustomerException("Customer not found");
+} else if (responseCode.equals("90091")) {
+    // System unavailable - retry
+    retryValidation(request);
+} else {
+    // Other error
+    throw new ValidationException(responseMessage);
+}
+```
+
+### Timeout handling
+
+The validation endpoint may timeout during network issues. Implement retry logic with exponential backoff:
+
+```java
+int maxRetries = 3;
+int attempt = 0;
+while (attempt < maxRetries) {
+    try {
+        String response = paymentsService.validateCustomer(request);
+        return response;
+    } catch (TimeoutException e) {
+        attempt++;
+        Thread.sleep(1000 * attempt); // Exponential backoff
+    }
+}
+```
+
+## Next steps
+
+<Card title="Process payments" icon="credit-card" href="/payments/making-payments">
+  After successful validation, proceed to process the payment transaction
+</Card>

@@ -1,0 +1,121 @@
+---
+title: Get biller payment items
+description: Retrieve available payment items for a specific biller
+---
+
+Retrieves all payment items (services or products) available for a specific biller. Payment items represent the specific services that customers can pay for, such as electricity prepaid, postpaid plans, or specific service packages.
+
+## Endpoint
+
+```
+GET /isw/payments/billerItems
+```
+
+## Authentication
+
+This endpoint requires authentication using Interswitch's signature-based authentication. The middleware automatically handles key exchange and generates the required authentication headers including:
+
+- Authorization token
+- Terminal key from key exchange
+- Request signature
+
+## Request
+
+<ParamField query="billerId" type="string" required>
+  The unique identifier of the biller to fetch payment items for. Obtained from the Get billers by category endpoint.
+</ParamField>
+
+### Example request
+
+```
+GET /isw/payments/billerItems?billerId=23
+```
+
+## Response
+
+Returns a JSON response containing an array of payment items available for the specified biller.
+
+<ResponseField name="items" type="array">
+  Array of payment item objects for the biller
+  
+  <ResponseField name="paymentItemId" type="string">
+    Unique identifier for the payment item
+  </ResponseField>
+  
+  <ResponseField name="paymentItemName" type="string">
+    Display name of the payment item
+  </ResponseField>
+  
+  <ResponseField name="paymentCode" type="string">
+    Payment code used when making payments
+  </ResponseField>
+  
+  <ResponseField name="itemFee" type="number">
+    Fee amount for this payment item
+  </ResponseField>
+  
+  <ResponseField name="amount" type="number">
+    Default or fixed amount for the payment item (if applicable)
+  </ResponseField>
+  
+  <ResponseField name="currencyCode" type="string">
+    Currency code for the payment (e.g., UGX, USD)
+  </ResponseField>
+  
+  <ResponseField name="isAmountFixed" type="boolean">
+    Whether the payment amount is fixed or variable
+  </ResponseField>
+</ResponseField>
+
+## Code example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://localhost:8081/isw/payments/billerItems?billerId=23' \
+  --header 'Content-Type: application/json'
+```
+
+```java Java
+String billerId = "23";
+String response = restTemplate.getForObject(
+    "http://localhost:8081/isw/payments/billerItems?billerId=" + billerId,
+    String.class
+);
+```
+
+```javascript JavaScript
+const billerId = '23';
+const response = await fetch(
+  `http://localhost:8081/isw/payments/billerItems?billerId=${billerId}`,
+  {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+const items = await response.json();
+```
+
+</CodeGroup>
+
+## Error responses
+
+If the key exchange fails, the endpoint returns an error message:
+
+```json
+{
+  "error": "Cannot Fetch Biller Items,Key Exchange failed"
+}
+```
+
+## Next steps
+
+After retrieving payment items:
+
+1. Use the payment code to validate customer details using [Validate customer](/api-reference/payments/validate-customer)
+2. Process payments using [Make payment](/api-reference/payments/make-payment)
+3. Display payment items to users for service selection

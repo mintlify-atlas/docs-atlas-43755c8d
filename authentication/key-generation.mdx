@@ -1,0 +1,159 @@
+---
+title: Key generation
+description: Generate RSA key pairs for secure communication with the Phoenix API
+---
+
+# Key generation
+
+RSA key pairs are fundamental to the Phoenix authentication system. The public key is shared with Phoenix during registration, while the private key is kept secure and used to decrypt sensitive data.
+
+## How it works
+
+The middleware generates 2048-bit RSA key pairs using Java's standard cryptography libraries:
+
+```java
+public Map<String,String> generateKeys() throws SystemApiException {
+    KeyPair pair = CryptoUtils.generateKeyPair();
+    String privateKey = Base64.encodeBase64String(pair.getPrivate().getEncoded());
+    String publicKey = Base64.encodeBase64String(pair.getPublic().getEncoded());
+    
+    Map keyPair = new HashMap();
+    keyPair.put("publicKey", publicKey);
+    keyPair.put("privateKey", privateKey);
+    
+    return keyPair;
+}
+```
+*Source: RegistrationService.java:23-33*
+
+## Generate keys
+
+<Steps>
+  <Step title="Call the endpoint">
+    Use the `/generateKeys` endpoint to create a new key pair:
+    
+    ```bash
+    curl http://localhost:8081/isw/auth/generateKeys
+    ```
+  </Step>
+  
+  <Step title="Save the keys">
+    The response contains both keys in Base64 format:
+    
+    ```json
+    {
+      "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8J3...",
+      "privateKey": "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoI..."
+    }
+    ```
+  </Step>
+  
+  <Step title="Update configuration">
+    Copy the keys to your `application.properties` file:
+    
+    ```properties
+    app.public_key=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8J3...
+    app.private_key=MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoI...
+    ```
+  </Step>
+  
+  <Step title="Restart the application">
+    Restart the middleware to load the new keys.
+  </Step>
+</Steps>
+
+<Warning>
+Never share your private key or commit it to version control. The private key must remain secret.
+</Warning>
+
+## CryptoUtils implementation
+
+The key generation is implemented in the `CryptoUtils` class:
+
+```java
+public static KeyPair generateKeyPair() throws SystemApiException {
+    try {
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        return keyGen.generateKeyPair();
+    } catch (Exception e) {
+        throw new SystemApiException("Failed to generate key pair", e);
+    }
+}
+```
+*Source: CryptoUtils.java*
+
+## Key usage
+
+Once generated, the keys are used throughout the authentication process:
+
+### Public key
+
+- Sent to Phoenix during client registration
+- Used by Phoenix to encrypt data sent to your application
+- Safe to share
+
+### Private key
+
+- Decrypts session keys from Phoenix
+- Signs authentication headers
+- Decrypts client secret during registration
+- Must be kept secure
+
+## Rotating keys
+
+To rotate your keys:
+
+<Steps>
+  <Step title="Generate new keys">
+    Call `/generateKeys` to create a fresh key pair
+  </Step>
+  
+  <Step title="Update configuration">
+    Replace the old keys in `application.properties`
+  </Step>
+  
+  <Step title="Re-register client">
+    Complete the registration process again with the new public key
+  </Step>
+  
+  <Step title="Update client secret">
+    Save the new client secret issued during re-registration
+  </Step>
+</Steps>
+
+<Info>
+Key rotation should be performed periodically as part of your security maintenance schedule.
+</Info>
+
+## Using existing keys
+
+If you already have RSA keys from another system, you can use them instead of generating new ones:
+
+1. Convert your keys to Base64-encoded DER format
+2. Update `application.properties` with the Base64 strings
+3. Ensure the keys are 2048-bit RSA
+
+## Security considerations
+
+<Note>
+**Key security best practices:**
+
+- Store private keys in secure key management systems (e.g., AWS KMS, HashiCorp Vault)
+- Use environment variables or secrets management in production
+- Never log or display private keys
+- Restrict file system permissions on `application.properties`
+- Rotate keys every 90 days or per your security policy
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Register client" icon="user-plus" href="/authentication/client-registration">
+    Use your keys to register with Phoenix
+  </Card>
+  
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Learn about all configuration options
+  </Card>
+</CardGroup>

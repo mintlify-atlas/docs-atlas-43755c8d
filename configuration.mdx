@@ -1,0 +1,218 @@
+---
+title: Configuration
+description: Configure the Phoenix Java Middleware with your credentials and settings
+---
+
+# Configuration
+
+The Phoenix Java Middleware is configured through the `application.properties` file. This guide covers all available configuration options.
+
+## Configuration file location
+
+Depending on how you run the middleware, the configuration file is located at:
+
+- **Pre-built JAR**: `dist/application.properties`
+- **Source build**: `src/main/resources/application.properties`
+
+## Required configuration
+
+<Warning>
+You must update these settings with your actual Phoenix API credentials before running the middleware. The default values are for demonstration only.
+</Warning>
+
+### Server configuration
+
+<ParamField path="server.port" type="integer" default="8081">
+  The port on which the middleware will run. Default is 8081.
+  ```properties
+  server.port = 8081
+  ```
+</ParamField>
+
+### Phoenix API credentials
+
+These credentials are provided by Interswitch Uganda when you register for the Phoenix API.
+
+<ParamField path="app.client_id" type="string" required>
+  Your Phoenix API client ID.
+  ```properties
+  app.client_id=IKIAB5D9BB39928575119F0F680926FABB0C00B93197
+  ```
+</ParamField>
+
+<ParamField path="app.client_secret" type="string" required>
+  Your Phoenix API client secret. This value is updated after successful client registration.
+  ```properties
+  app.client_secret=b/Pv7X7SH2Asu5NJ8AITyiBMiBx9Y4fuyrXRWmm1i5Y=
+  ```
+</ParamField>
+
+<Note>
+After completing client registration, a new client secret is issued. You must update this value in the configuration file.
+</Note>
+
+<ParamField path="app.terminal_id" type="string" required>
+  Your terminal identifier.
+  ```properties
+  app.terminal_id=3ISO7027
+  ```
+</ParamField>
+
+### Cryptographic keys
+
+<ParamField path="app.public_key" type="string" required>
+  Your RSA public key in Base64 format. Generate this using the `/isw/auth/generateKeys` endpoint or use existing keys.
+  ```properties
+  app.public_key=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8J3DnDB...
+  ```
+</ParamField>
+
+<ParamField path="app.private_key" type="string" required>
+  Your RSA private key in Base64 format. Keep this secure and never share it.
+  ```properties
+  app.private_key=MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCnw...
+  ```
+</ParamField>
+
+<Tip>
+Use the `/isw/auth/generateKeys` endpoint to generate a new RSA key pair if you don't have one.
+</Tip>
+
+### Application metadata
+
+<ParamField path="app.serial_id" type="string" required>
+  Serial ID for your application instance.
+  ```properties
+  app.serial_id=12345
+  ```
+</ParamField>
+
+<ParamField path="app.version" type="string" default="v1">
+  API version to use.
+  ```properties
+  app.version=v1
+  ```
+</ParamField>
+
+<ParamField path="app.password" type="string" required>
+  Application password for authentication.
+  ```properties
+  app.password=12345
+  ```
+</ParamField>
+
+### Phoenix API endpoints
+
+<ParamField path="app.base_url" type="string" required>
+  The base URL for Phoenix API operations.
+  ```properties
+  app.base_url=https://dev.interswitch.io/api/v1/phoenix/
+  ```
+</ParamField>
+
+<ParamField path="app.billers_base_url" type="string" required>
+  The base URL for biller-related operations.
+  ```properties
+  app.billers_base_url=https://dev.interswitch.io/api/v1/phoenix/gateway/qt-api/Biller/
+  ```
+</ParamField>
+
+<Info>
+The URLs shown above are for the development/sandbox environment. Use production URLs when deploying to production.
+</Info>
+
+## Complete configuration example
+
+Here's a complete example of the `application.properties` file:
+
+```properties
+server.port = 8081
+
+# Phoenix API Credentials
+app.client_id=IKIAB5D9BB39928575119F0F680926FABB0C00B93197
+app.client_secret=b/Pv7X7SH2Asu5NJ8AITyiBMiBx9Y4fuyrXRWmm1i5Y=
+app.terminal_id=3ISO7027
+
+# RSA Keys
+app.public_key=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8J3DnDB...
+app.private_key=MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCnw...
+
+# Application Metadata
+app.serial_id=12345
+app.version=v1
+app.password=12345
+
+# Phoenix API Endpoints
+app.base_url=https://dev.interswitch.io/api/v1/phoenix/
+app.billers_base_url=https://dev.interswitch.io/api/v1/phoenix/gateway/qt-api/Biller/
+```
+
+## Configuration steps
+
+<Steps>
+  <Step title="Obtain credentials">
+    Register with Interswitch Uganda to receive your Phoenix API credentials including client ID, terminal ID, and access to the API environments.
+  </Step>
+
+  <Step title="Generate keys">
+    Use the middleware's key generation endpoint or generate RSA keys externally:
+    ```bash
+    curl http://localhost:8081/isw/auth/generateKeys
+    ```
+  </Step>
+
+  <Step title="Update configuration">
+    Edit the `application.properties` file with your credentials and generated keys.
+  </Step>
+
+  <Step title="Register client">
+    After starting the middleware, register your client using the `/isw/auth/registerClient` endpoint. This will issue a new client secret.
+  </Step>
+
+  <Step title="Update client secret">
+    Update the `app.client_secret` value in `application.properties` with the new secret from the registration response.
+  </Step>
+
+  <Step title="Restart the application">
+    Restart the middleware for the new client secret to take effect.
+  </Step>
+</Steps>
+
+## Environment-specific configuration
+
+For different environments (development, staging, production), maintain separate configuration files:
+
+```
+application.properties              # Default
+application-dev.properties         # Development
+application-staging.properties     # Staging
+application-prod.properties        # Production
+```
+
+Run with a specific profile:
+```bash
+java -jar phoenix-api-middleware-1.0.0.jar --spring.profiles.active=prod
+```
+
+## Security best practices
+
+<Warning>
+Follow these security practices to protect your credentials:
+</Warning>
+
+- **Never commit** `application.properties` with real credentials to version control
+- **Use environment variables** or secret management tools for production deployments
+- **Rotate keys regularly** and update the client secret after registration
+- **Restrict access** to the configuration file using file system permissions
+- **Use HTTPS** when deploying the middleware to production
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication/overview">
+    Learn about the authentication flow
+  </Card>
+  <Card title="Client registration" icon="user-plus" href="/authentication/client-registration">
+    Register your client with Phoenix API
+  </Card>
+</CardGroup>
