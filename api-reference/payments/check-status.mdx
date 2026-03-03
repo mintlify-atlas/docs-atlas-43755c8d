@@ -5,9 +5,9 @@ description: Retrieve the current status of a payment transaction
 
 ## Endpoint
 
-```
+```http
 GET /isw/payments/checkStatus
-```
+```http
 
 Retrieve the current status of a payment transaction using its request reference. Use this endpoint to check whether a payment has been successfully processed, is pending, or has failed.
 
@@ -62,4 +62,4 @@ Returns a JSON string containing the transaction status information.
 ```bash
 curl -X GET "https://api.example.com/isw/payments/checkStatus?requestReference=038938738738" \
   -H "Authorization: Bearer YOUR_API_KEY"
-```
+```http

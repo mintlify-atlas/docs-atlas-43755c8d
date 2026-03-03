@@ -7,9 +7,9 @@ Retrieves all billers that belong to a specific category. Use this endpoint afte
 
 ## Endpoint
 
-```
+```http
 GET /isw/payments/categoryBillers
-```
+```http
 
 ## Authentication
 
@@ -27,9 +27,9 @@ This endpoint requires authentication using Interswitch's signature-based authen
 
 ### Example request
 
-```
+```http
 GET /isw/payments/categoryBillers?categoryId=10
-```
+```http
 
 ## Response
 
@@ -63,7 +63,7 @@ Returns a JSON response containing an array of billers in the specified category
 curl --request GET \
   --url 'http://localhost:8081/isw/payments/categoryBillers?categoryId=10' \
   --header 'Content-Type: application/json'
-```
+```http
 
 ```java Java
 String categoryId = "10";
@@ -71,7 +71,7 @@ String response = restTemplate.getForObject(
     "http://localhost:8081/isw/payments/categoryBillers?categoryId=" + categoryId,
     String.class
 );
-```
+```http
 
 ```javascript JavaScript
 const categoryId = '10';
@@ -86,7 +86,7 @@ const response = await fetch(
 );
 
 const billers = await response.json();
-```
+```http
 
 </CodeGroup>
 
@@ -98,7 +98,7 @@ If the key exchange fails, the endpoint returns an error message:
 {
   "error": "Cannot Fetch Billers,Key Exchange failed"
 }
-```
+```http
 
 ## Next steps
 

@@ -5,9 +5,9 @@ description: Process a payment transaction after customer validation
 
 ## Endpoint
 
-```
+```http
 POST /isw/payments/pay
-```
+```http
 
 Processes a payment transaction using validated customer information. This endpoint should be called after successfully validating customer details using the validation endpoint.
 
@@ -198,4 +198,4 @@ curl -X POST https://api.example.com/isw/payments/pay \
     "pin": "1234",
     "otp": "567890"
   }'
-```
+```http

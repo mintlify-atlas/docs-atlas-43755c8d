@@ -5,9 +5,9 @@ description: Validate customer details before processing a payment transaction
 
 ## Endpoint
 
-```
+```http
 POST /isw/payments/validation
-```
+```http
 
 Validates customer information and payment details before initiating a payment transaction. This endpoint should be called prior to making a payment to ensure all customer data is valid and the transaction can be processed.
 
@@ -176,4 +176,4 @@ curl -X POST https://api.example.com/isw/payments/validation \
     "customerName": "Alice Smith",
     "currencyCode": "USD"
   }'
-```
+```http

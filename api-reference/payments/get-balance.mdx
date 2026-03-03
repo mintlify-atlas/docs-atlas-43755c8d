@@ -5,9 +5,9 @@ description: Retrieve the current balance of your payment wallet
 
 ## Endpoint
 
-```
+```http
 GET /isw/payments/balance
-```
+```http
 
 Retrieves the current balance available in your payment wallet. This endpoint provides real-time balance information for your account.
 
@@ -52,4 +52,4 @@ Returns a JSON string containing the wallet balance information.
 ```bash
 curl -X GET https://api.example.com/isw/payments/balance \
   -H "Authorization: Bearer YOUR_API_KEY"
-```
+```http

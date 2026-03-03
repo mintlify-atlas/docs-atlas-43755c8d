@@ -7,9 +7,9 @@ Retrieves all payment items (services or products) available for a specific bill
 
 ## Endpoint
 
-```
+```http
 GET /isw/payments/billerItems
-```
+```http
 
 ## Authentication
 
@@ -27,9 +27,9 @@ This endpoint requires authentication using Interswitch's signature-based authen
 
 ### Example request
 
-```
+```http
 GET /isw/payments/billerItems?billerId=23
-```
+```http
 
 ## Response
 
@@ -75,7 +75,7 @@ Returns a JSON response containing an array of payment items available for the s
 curl --request GET \
   --url 'http://localhost:8081/isw/payments/billerItems?billerId=23' \
   --header 'Content-Type: application/json'
-```
+```http
 
 ```java Java
 String billerId = "23";
@@ -83,7 +83,7 @@ String response = restTemplate.getForObject(
     "http://localhost:8081/isw/payments/billerItems?billerId=" + billerId,
     String.class
 );
-```
+```http
 
 ```javascript JavaScript
 const billerId = '23';
@@ -98,7 +98,7 @@ const response = await fetch(
 );
 
 const items = await response.json();
-```
+```http
 
 </CodeGroup>
 
@@ -110,7 +110,7 @@ If the key exchange fails, the endpoint returns an error message:
 {
   "error": "Cannot Fetch Biller Items,Key Exchange failed"
 }
-```
+```http
 
 ## Next steps
 

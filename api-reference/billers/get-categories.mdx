@@ -7,9 +7,9 @@ Retrieves all biller categories that are available for the authenticated client.
 
 ## Endpoint
 
-```
+```http
 GET /isw/payments/billerCategories
-```
+```http
 
 ## Authentication
 
@@ -51,14 +51,14 @@ Returns a JSON response containing an array of biller categories.
 curl --request GET \
   --url http://localhost:8081/isw/payments/billerCategories \
   --header 'Content-Type: application/json'
-```
+```http
 
 ```java Java
 String response = restTemplate.getForObject(
     "http://localhost:8081/isw/payments/billerCategories",
     String.class
 );
-```
+```http
 
 ```javascript JavaScript
 const response = await fetch('http://localhost:8081/isw/payments/billerCategories', {
@@ -69,7 +69,7 @@ const response = await fetch('http://localhost:8081/isw/payments/billerCategorie
 });
 
 const categories = await response.json();
-```
+```http
 
 </CodeGroup>
 
@@ -81,7 +81,7 @@ If the key exchange fails, the endpoint returns an error message:
 {
   "error": "Cannot Fetch Categories,Key Exchange failed"
 }
-```
+```http
 
 ## Next steps
 
