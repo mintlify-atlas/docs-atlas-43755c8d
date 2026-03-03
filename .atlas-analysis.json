@@ -1,0 +1,104 @@
+{
+  "projectType": "api-service",
+  "projectName": "Phoenix Java Middleware",
+  "projectDescription": "Java Spring Boot middleware for integrating with the Interswitch Phoenix payment API",
+  "theme": "aspen",
+  "primaryColor": "#1E40AF",
+  "lightColor": "#3B82F6",
+  "darkColor": "#1E3A8A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "configuration"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "authentication/overview",
+              "authentication/key-generation",
+              "authentication/client-registration",
+              "authentication/key-exchange"
+            ]
+          },
+          {
+            "group": "Payment Operations",
+            "pages": [
+              "payments/overview",
+              "payments/validation",
+              "payments/making-payments",
+              "payments/transaction-status",
+              "payments/wallet-balance"
+            ]
+          },
+          {
+            "group": "Biller Management",
+            "pages": [
+              "billers/overview",
+              "billers/categories",
+              "billers/category-billers",
+              "billers/biller-items"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication Endpoints",
+            "pages": [
+              "api-reference/auth/generate-keys",
+              "api-reference/auth/register-client",
+              "api-reference/auth/key-exchange"
+            ]
+          },
+          {
+            "group": "Payment Endpoints",
+            "pages": [
+              "api-reference/payments/validate-customer",
+              "api-reference/payments/make-payment",
+              "api-reference/payments/check-status",
+              "api-reference/payments/get-balance"
+            ]
+          },
+          {
+            "group": "Biller Endpoints",
+            "pages": [
+              "api-reference/billers/get-categories",
+              "api-reference/billers/get-category-billers",
+              "api-reference/billers/get-biller-items"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Client registration and authentication with Phoenix API",
+    "Elliptic curve cryptography for secure key exchange",
+    "Payment validation and processing",
+    "Transaction status tracking",
+    "Wallet balance inquiries",
+    "Biller and payment item catalog"
+  ],
+  "publicApiSurface": [
+    "GET /isw/auth/generateKeys",
+    "POST /isw/auth/registerClient",
+    "GET /isw/auth/keyExchange",
+    "POST /isw/payments/validation",
+    "POST /isw/payments/pay",
+    "GET /isw/payments/checkStatus",
+    "GET /isw/payments/balance",
+    "GET /isw/payments/billerCategories",
+    "GET /isw/payments/categoryBillers",
+    "GET /isw/payments/billerItems"
+  ]
+}
